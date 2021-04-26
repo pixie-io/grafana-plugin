@@ -1,0 +1,105 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.19.0
+# ignores vulnerabilities until expiry date; change duration by modifying expiry date
+ignore:
+  'snyk:lic:golang:github.com:go-sql-driver:mysql:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:errwrap:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-cleanhttp:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-multierror:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:golang-lru:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:hcl:MPL-2.0':
+    - '*':
+        reason: MPL license exemption from CNCF
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:consul:api:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:consul:sdk:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-immutable-radix:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-plugin:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-rootcerts:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-sockaddr:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-uuid:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:go-version:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:logutils:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:memberlist:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:serf:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:hashicorp:yamux:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:mitchellh:cli:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+  'snyk:lic:golang:github.com:mitchellh:gox:MPL-2.0':
+    - '*':
+        reason: Check with CNCF to get MPL exemption
+        expires: 2022-01-15T00:00:00.000Z
+        created: 2021-04-27T01:09:57.000Z
+patch: {}
