@@ -46,7 +46,7 @@ jobs:
         run: yarn build
 
       - name: License linter
-        with: |
+        run: |
           git ls-files '**/*.tsx' '**/*.ts' '**/*.js' '**/*.jsx' '**/*.scss' '**/*.py' '**/*.go' | xargs -l1 tools/licenses/checker.py -f
 
       - name: Check for backend
