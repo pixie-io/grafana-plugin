@@ -26,7 +26,7 @@ import (
 
 	"px.dev/pxapi"
 	"px.dev/pxapi/types"
-	vizierapipb "px.dev/pxapi/proto/vizierapipb"
+	"px.dev/pxapi/proto/vizierapipb"
 )
 
 // PixieToGrafanaTablePrinter satisfies the TableRecordHandler interface.
