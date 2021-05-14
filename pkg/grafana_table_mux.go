@@ -20,79 +20,145 @@ package main
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 
 	"px.dev/pxapi"
-	"px.dev/pxapi/types"
 	"px.dev/pxapi/proto/vizierpb"
+	"px.dev/pxapi/types"
 )
+
+type TableRow struct {
+	// rowVals are all the values in a row.
+	rowVals []interface{}
+}
+
+type Table []TableRow
 
 // PixieToGrafanaTablePrinter satisfies the TableRecordHandler interface.
 type PixieToGrafanaTablePrinter struct {
 	// Grafana Frame for Pixie Table. Holds fields.
 	frame *data.Frame
+
+	metadata *types.TableMetadata
+
+	// Table holds the tables rows.
+	table Table
+
+	timeColIdx int
 }
 
-// HandleInit creates a new Grafana field for each column in a table.
-func (t *PixieToGrafanaTablePrinter) HandleInit(ctx context.Context, metadata types.TableMetadata) error {
+// firstTimeColIdx checks if there is a time based column at all.
+func firstTimeColIdx(metadata types.TableMetadata) int {
+	for idx, col := range metadata.ColInfo {
+		if col.Type == vizierpb.TIME64NS {
+			return idx
+		}
+	}
+	return -1
+}
+
+// createNewFrame simply creates new frame based on the column names & types.
+func createNewFrame(metadata types.TableMetadata) *data.Frame {
 	// Create new data frame for new table.
-	t.frame = data.NewFrame(metadata.Name)
+	frame := data.NewFrame(metadata.Name)
 
 	// Create new fields (columns) for the frame.
 	for _, col := range metadata.ColInfo {
 		switch colType := col.Type; colType {
 		case vizierpb.BOOLEAN:
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []bool{}))
 		case vizierpb.INT64:
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []int64{}))
 		case vizierpb.TIME64NS:
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []time.Time{}))
 		case vizierpb.FLOAT64:
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []float64{}))
 		case vizierpb.STRING:
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []string{}))
 		case vizierpb.UINT128:
 			// Use a UUID style string representation for uint128
 			// since Grafana fields do not support uint128
-			t.frame.Fields = append(t.frame.Fields,
+			frame.Fields = append(frame.Fields,
 				data.NewField(col.Name, nil, []string{}))
 		}
 	}
+	return frame
+}
+
+// HandleInit creates a new Grafana field for each column in a table.
+func (t *PixieToGrafanaTablePrinter) HandleInit(ctx context.Context, metadata types.TableMetadata) error {
+	t.timeColIdx = firstTimeColIdx(metadata)
+	t.metadata = &metadata
 	return nil
 }
 
 // HandleRecord goes through the record adding the data to the appropriate
 // field.
 func (t *PixieToGrafanaTablePrinter) HandleRecord(ctx context.Context, r *types.Record) error {
-	for colIdx, d := range r.Data {
+	rowTableData := TableRow{}
+
+	// Go through table row by row, appending to table data structure.
+	for _, d := range r.Data {
 		switch d.Type() {
 		case vizierpb.BOOLEAN:
-			t.frame.Fields[colIdx].Append(d.(*types.BooleanValue).Value())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.BooleanValue).Value())
 		case vizierpb.INT64:
-			t.frame.Fields[colIdx].Append(d.(*types.Int64Value).Value())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.Int64Value).Value())
 		case vizierpb.UINT128:
-			t.frame.Fields[colIdx].Append(d.(*types.UInt128Value).String())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.UInt128Value).String())
 		case vizierpb.FLOAT64:
-			t.frame.Fields[colIdx].Append(d.(*types.Float64Value).Value())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.Float64Value).Value())
 		case vizierpb.STRING:
-			t.frame.Fields[colIdx].Append(d.(*types.StringValue).Value())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.StringValue).Value())
 		case vizierpb.TIME64NS:
-			t.frame.Fields[colIdx].Append(d.(*types.Time64NSValue).Value())
+			rowTableData.rowVals = append(rowTableData.rowVals, d.(*types.Time64NSValue).Value())
 		}
 	}
-
+	t.table = append(t.table, rowTableData)
 	return nil
 }
 
 // HandleDone is run when all record processing is complete.
 func (t *PixieToGrafanaTablePrinter) HandleDone(ctx context.Context) error {
+	timeColIdx := t.timeColIdx
+
+	// Do sort using first time column.
+	if t.timeColIdx != -1 {
+		sort.Slice(t.table, func(i, j int) bool {
+			// Whichever time is earlier is the lesser.
+			firstTime := (t.table[i].rowVals[timeColIdx]).(time.Time)
+			secondTime := (t.table[j].rowVals[timeColIdx]).(time.Time)
+			return firstTime.Before(secondTime)
+		})
+	}
+
+	// Create Grafana data frame, casting from interface type appropriately.
+	frame := createNewFrame(*t.metadata)
+	for _, tRow := range t.table {
+		for colIdx, rowVal := range tRow.rowVals {
+			switch rowValType := rowVal.(type) {
+			case bool:
+				frame.Fields[colIdx].Append(rowValType)
+			case int64:
+				frame.Fields[colIdx].Append(rowValType)
+			case time.Time:
+				frame.Fields[colIdx].Append(rowValType)
+			case string:
+				frame.Fields[colIdx].Append(rowValType)
+			case float64:
+				frame.Fields[colIdx].Append(rowValType)
+			}
+		}
+	}
+	t.frame = frame
 	return nil
 }
 

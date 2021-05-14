@@ -21,13 +21,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"px.dev/pxapi/types"
 	"px.dev/pxapi/proto/vizierpb"
+	"px.dev/pxapi/types"
 )
 
 func makeTableMetadata(schemaTypes ...types.DataType) *types.TableMetadata {
@@ -301,6 +302,11 @@ func TestOneTimeColumn(t *testing.T) {
 	// Check the number of fields in frame.
 	assert.Equal(t, 1, len(grafanaFrame.Fields))
 
+	// Sort time from earliest to latest.
+	sort.Slice(rowVals, func(i, j int) bool {
+		return rowVals[i].Before(rowVals[j])
+	})
+
 	for idx, expectedRowValStr := range rowVals {
 		val := grafanaFrame.Fields[0].At(idx).(time.Time)
 		assert.True(t, val.Equal(expectedRowValStr))
@@ -361,6 +367,75 @@ func TestTwoColumn(t *testing.T) {
 	}
 }
 
+func TestTwoColumnWithTime(t *testing.T) {
+	tableOneMetadata := makeTableMetadata(vizierpb.TIME64NS,
+		vizierpb.INT64)
+	rowVals := []time.Time{
+		time.Now(),
+		time.Now().Add(1 * time.Hour),
+		time.Now().Add(-2 * time.Hour),
+	}
+
+	rowIntVals := []int64{
+		124,
+		345,
+		-1324234,
+	}
+
+	// Slice of records.
+	var recordLst []*types.Record
+	for idx, rowVal := range rowVals {
+		var dataStrLst []types.Datum
+
+		// Add string value to column
+		newTime64NSVal := types.NewTime64NSValue(&tableOneMetadata.ColInfo[0])
+		newTime64NSVal.ScanInt64(rowVal.UnixNano())
+		dataStrLst = append(dataStrLst, newTime64NSVal)
+
+		newInt64Val := types.NewInt64Value(&tableOneMetadata.ColInfo[1])
+		newInt64Val.ScanInt64(rowIntVals[idx])
+		dataStrLst = append(dataStrLst, newInt64Val)
+
+		recordLst = append(recordLst, &types.Record{
+			Data:          dataStrLst,
+			TableMetadata: tableOneMetadata,
+		})
+	}
+
+	tm := &PixieToGrafanaTableMux{}
+	tableMuxAcceptTableAndHandleRecord(t, tm, tableOneMetadata, recordLst)
+
+	assert.Equal(t, 1, len(tm.pxTablePrinterLst))
+	grafanaFrame := tm.pxTablePrinterLst[0].frame
+
+	type Row struct {
+		t time.Time
+		v int64
+	}
+
+	var rows []Row
+	for idx := range rowVals {
+		rows = append(rows, Row{
+			t: rowVals[idx],
+			v: rowIntVals[idx],
+		})
+	}
+
+	// Sort time from earliest to latest.
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].t.Before(rows[j].t)
+	})
+
+	// Check the number of fields in frame.
+	assert.Equal(t, 2, len(grafanaFrame.Fields))
+	for idx, expectedRowVal := range rows {
+		val := grafanaFrame.Fields[0].At(idx).(time.Time)
+		assert.Equal(t, true, val.Equal(expectedRowVal.t))
+		valInt := grafanaFrame.Fields[1].At(idx).(int64)
+		assert.Equal(t, valInt, expectedRowVal.v)
+	}
+}
+
 func TestTwoTables(t *testing.T) {
 	tableOneMetadata := makeTableMetadata(vizierpb.TIME64NS)
 	rowTimeVals := []time.Time{
@@ -416,6 +491,11 @@ func TestTwoTables(t *testing.T) {
 	// Check the number of fields in frame.
 	assert.Equal(t, 1, len(grafanaFrame.Fields))
 	assert.Equal(t, 1, len(grafanSecondFrame.Fields))
+
+	// Sort time from earliest to latest.
+	sort.Slice(rowTimeVals, func(i, j int) bool {
+		return rowTimeVals[i].Before(rowTimeVals[j])
+	})
 
 	for idx, expectedRowValStr := range rowTimeVals {
 		val := grafanaFrame.Fields[0].At(idx).(time.Time)
