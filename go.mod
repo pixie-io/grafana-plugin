@@ -5,7 +5,11 @@ go 1.16
 require (
 	github.com/grafana/grafana-plugin-sdk-go v0.92.0
 	github.com/stretchr/testify v1.7.0
-	px.dev/pxapi v0.0.0-20210424010607-a9fe8fb62c2a
+	golang.org/x/net v0.0.0-20210510120150-4163338589ed // indirect
+	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
+	google.golang.org/genproto v0.0.0-20210513213006-bf773b8c8384 // indirect
+	google.golang.org/grpc v1.37.1 // indirect
+	px.dev/pxapi v0.0.0-20210513221242-f9cf8e42dba1
 )
 
 replace (

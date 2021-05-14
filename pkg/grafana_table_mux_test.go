@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"px.dev/pxapi/types"
-	"px.dev/pxapi/proto/vizierapipb"
+	"px.dev/pxapi/proto/vizierpb"
 )
 
 func makeTableMetadata(schemaTypes ...types.DataType) *types.TableMetadata {
@@ -37,7 +37,7 @@ func makeTableMetadata(schemaTypes ...types.DataType) *types.TableMetadata {
 			types.ColSchema{
 				Name:         fmt.Sprintf("Column %d", idx),
 				Type:         schemaType,
-				SemanticType: vizierapipb.ST_NONE,
+				SemanticType: vizierpb.ST_NONE,
 			},
 		)
 	}
@@ -75,7 +75,7 @@ func tableMuxAcceptTableAndHandleRecord(t *testing.T, tm *PixieToGrafanaTableMux
 }
 
 func TestEmptyTable(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.FLOAT64)
+	tableOneMetadata := makeTableMetadata(vizierpb.FLOAT64)
 	var recordLst []*types.Record
 	tm := &PixieToGrafanaTableMux{}
 	tableMuxAcceptTableAndHandleRecord(t, tm, tableOneMetadata, recordLst)
@@ -88,7 +88,7 @@ func TestEmptyTable(t *testing.T) {
 }
 
 func TestOneStringColumn(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.STRING)
+	tableOneMetadata := makeTableMetadata(vizierpb.STRING)
 	rowVals := []string{
 		"First Val",
 		"Second Val",
@@ -126,7 +126,7 @@ func TestOneStringColumn(t *testing.T) {
 }
 
 func TestOneInt64Column(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.INT64)
+	tableOneMetadata := makeTableMetadata(vizierpb.INT64)
 	rowVals := []int64{
 		124,
 		-165,
@@ -163,7 +163,7 @@ func TestOneInt64Column(t *testing.T) {
 }
 
 func TestOneBoolColumn(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.BOOLEAN)
+	tableOneMetadata := makeTableMetadata(vizierpb.BOOLEAN)
 	rowVals := []bool{
 		false,
 		true,
@@ -200,7 +200,7 @@ func TestOneBoolColumn(t *testing.T) {
 }
 
 func TestOneFloat64Column(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.FLOAT64)
+	tableOneMetadata := makeTableMetadata(vizierpb.FLOAT64)
 	rowVals := []float64{
 		124.02345,
 		-165.9999,
@@ -237,9 +237,9 @@ func TestOneFloat64Column(t *testing.T) {
 }
 
 func TestOneUInt128Column(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.UINT128)
+	tableOneMetadata := makeTableMetadata(vizierpb.UINT128)
 	newUInt128Val := types.NewUint128Value(&tableOneMetadata.ColInfo[0])
-	data := &vizierapipb.UInt128{
+	data := &vizierpb.UInt128{
 		Low:  0x0011223344556677,
 		High: 0x8811223344556677,
 	}
@@ -271,7 +271,7 @@ func TestOneUInt128Column(t *testing.T) {
 }
 
 func TestOneTimeColumn(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.TIME64NS)
+	tableOneMetadata := makeTableMetadata(vizierpb.TIME64NS)
 	rowVals := []time.Time{
 		time.Now(),
 		time.Now().Add(1 * time.Hour),
@@ -308,8 +308,8 @@ func TestOneTimeColumn(t *testing.T) {
 }
 
 func TestTwoColumn(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.STRING,
-		vizierapipb.INT64)
+	tableOneMetadata := makeTableMetadata(vizierpb.STRING,
+		vizierpb.INT64)
 	rowStringVals := []string{
 		"First Val",
 		"Second Val",
@@ -362,7 +362,7 @@ func TestTwoColumn(t *testing.T) {
 }
 
 func TestTwoTables(t *testing.T) {
-	tableOneMetadata := makeTableMetadata(vizierapipb.TIME64NS)
+	tableOneMetadata := makeTableMetadata(vizierpb.TIME64NS)
 	rowTimeVals := []time.Time{
 		time.Now(),
 		time.Now().Add(1 * time.Hour),
@@ -386,7 +386,7 @@ func TestTwoTables(t *testing.T) {
 	tm := &PixieToGrafanaTableMux{}
 	tableMuxAcceptTableAndHandleRecord(t, tm, tableOneMetadata, recordLst)
 
-	tableTwoMetadata := makeTableMetadata(vizierapipb.BOOLEAN)
+	tableTwoMetadata := makeTableMetadata(vizierpb.BOOLEAN)
 	rowBoolVals := []bool{
 		true,
 		true,
