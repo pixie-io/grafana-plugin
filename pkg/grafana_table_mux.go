@@ -50,6 +50,16 @@ type PixieToGrafanaTablePrinter struct {
 	timeColIdx int
 }
 
+// FormatGrafanaTimeFrame checks if there is a "time_" named column.
+func (t *PixieToGrafanaTablePrinter) FormatGrafanaTimeFrame() bool {
+	for _, col := range t.metadata.ColInfo {
+		if col.Name == "time_" {
+			return true
+		}
+	}
+	return false
+}
+
 // firstTimeColIdx checks if there is a time based column at all.
 func firstTimeColIdx(metadata types.TableMetadata) int {
 	for idx, col := range metadata.ColInfo {
