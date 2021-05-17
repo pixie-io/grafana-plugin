@@ -29,6 +29,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"github.com/grafana/grafana-plugin-sdk-go/data"
 
 	"px.dev/pxapi"
 )
@@ -157,9 +158,21 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	}
 
 	// Add the frames to the response.
-	for _, tableFrame := range tm.pxTablePrinterLst {
-		response.Frames = append(response.Frames,
-			tableFrame.frame)
+	for _, tablePrinter := range tm.pxTablePrinterLst {
+		// If time series schema long && time_ column, convert to wide. Otherwise
+		// proceed as normal.
+		tsSchema := tablePrinter.frame.TimeSeriesSchema()
+		if tablePrinter.FormatGrafanaTimeFrame() && tsSchema.Type == data.TimeSeriesTypeLong {
+			wideFrame, err := data.LongToWide(tablePrinter.frame,
+				&data.FillMissing{Mode: data.FillModeNull})
+			if err != nil {
+				return nil, err
+			}
+			response.Frames = append(response.Frames, wideFrame)
+		} else {
+			response.Frames = append(response.Frames,
+				tablePrinter.frame)
+		}
 	}
 	return response, nil
 }
