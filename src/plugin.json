@@ -12,7 +12,7 @@
       "name": "The Pixie Authors",
       "url": "https://pixielabs.ai/"
     },
-    "keywords": [],
+    "keywords": ["Pixie", "Grafana", "Kubernetes", "eBPF", "Open Source"],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
