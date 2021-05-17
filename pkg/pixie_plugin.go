@@ -160,7 +160,7 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	// Add the frames to the response.
 	for _, tablePrinter := range tm.pxTablePrinterLst {
 		// If time series schema long && time_ column, convert to wide. Otherwise
-		// proceed as normal.
+		// proceed as normal. TEST
 		tsSchema := tablePrinter.frame.TimeSeriesSchema()
 		if tablePrinter.FormatGrafanaTimeFrame() && tsSchema.Type == data.TimeSeriesTypeLong {
 			wideFrame, err := data.LongToWide(tablePrinter.frame,
