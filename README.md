@@ -8,48 +8,26 @@ This plugin allows Grafana users to use Pixie as a datasource in their Grafana d
 
 [Install Pixie](https://docs.pixielabs.ai/installing-pixie/) on your Kubernetes cluster.
 
-### Building from source: front-end
+### Installing the Plugin on an Existing Grafana with the CLI
 
-1. Install dependencies
+Grafana comes with a command line tool that can be used to install plugins.
 
-   ```bash
-   yarn install
-   ```
+1. Run this command: `grafana-cli plugins install pixie-datasource`
+2. Restart the Grafana server. 
+3. With Grafana open, from the left vertical menu choose "Configuration" > "Data Sources." Select the "Add data source" button. Search for "Pixie Grafana Datasource Plugin" and press the "Select" button. The Pixie Plugin requires a Pixie API Key and Cluster ID to execute queries. To create an API Key, follow the directions [here](https://docs.pixielabs.ai/using-pixie/api-quick-start/#get-an-api-token). To find your cluster's ID, follow the directions [here](https://docs.pixielabs.ai/using-pixie/api-quick-start/#get-a-cluster-id). Finally, select the "Save & Test" button.
 
-2. Build plugin in development mode or run in watch mode
 
-   ```bash
-   yarn dev
-   ```
 
-   or
+### Installing the Plugin Manually
 
-   ```bash
-   yarn watch
-   ```
+Plugin can also be downloaded & manually copied to a Grafana server.
 
-3. Build plugin in production mode
+1. Get the zip file from Grafana or from the github release.
+2. Extract the zip file into the plugins directory for Grafana.
+3. Restart the Grafana server. Details [here](https://grafana.com/docs/grafana/latest/installation/restart-grafana/).
+4. Select from the list of installed datasource plugins in Grafana.
 
-   ```bash
-   yarn build
-   ```
 
-### Building from source: back-end
 
-1. Update [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/) dependency to the latest minor version:
 
-   ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
-   ```
-
-2. Build backend plugin binaries for Linux, Windows and Darwin:
-
-   ```bash
-   mage -v
-   ```
-
-3. List all available Mage targets for additional commands:
-
-   ```bash
-   mage -l
-   ```   
+   
