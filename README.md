@@ -12,7 +12,7 @@ This plugin allows Grafana users to use Pixie as a datasource in their Grafana d
 
 Grafana comes with a command line tool that can be used to install plugins.
 
-1. Run this command: `grafana-cli plugins install pixie-datasource`
+1. Run this command: `grafana-cli plugins install pixie-pixie-datasource`
 2. Restart the Grafana server. 
 3. With Grafana open, from the left vertical menu choose "Configuration" > "Data Sources." Select the "Add data source" button. Search for "Pixie Grafana Datasource Plugin" and press the "Select" button. The Pixie Plugin requires a Pixie API Key and Cluster ID to execute queries. To create an API Key, follow the directions [here](https://docs.pixielabs.ai/using-pixie/api-quick-start/#get-an-api-token). To find your cluster's ID, follow the directions [here](https://docs.pixielabs.ai/using-pixie/api-quick-start/#get-a-cluster-id). Finally, select the "Save & Test" button.
 

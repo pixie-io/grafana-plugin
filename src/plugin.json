@@ -2,10 +2,10 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Pixie Grafana Datasource Plugin",
-  "id": "pixie-datasource",
+  "id": "pixie-pixie-datasource",
   "metrics": true,
   "backend": true,
-  "executable": "gpx-pixie-datasource-plugin",
+  "executable": "gpx-pixie-pixie-datasource-plugin",
   "info": {
     "description": "Pixie's Grafana Datasource Plugin",
     "author": {
