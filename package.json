@@ -1,5 +1,5 @@
 {
-  "name": "pixie-datasource",
+  "name": "pixie-pixie-datasource",
   "version": "0.0.1",
   "description": "Pixie's Grafana Datasource Plugin",
   "scripts": {
