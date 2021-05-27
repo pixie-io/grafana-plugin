@@ -12,7 +12,7 @@ This plugin allows Grafana users to use Pixie as a datasource in their Grafana d
 
 For now, to deploy the plugin, it must be manually copied to a Grafana server.
 
-1. Get the zip file from the Github releases page on this repo.
-2. Extract the zip file into the plugins directory for Grafana.
-3. Restart the Grafana server. Details [here](https://grafana.com/docs/grafana/latest/installation/restart-grafana/).
-4. Select from the list of installed datasource plugins in Grafana.
+1. Get the zip file from the Github [releases page](https://github.com/pixie-labs/grafana-plugin/releases) on this repo.
+2. Extract the zip file into the [plugins directory](https://grafana.com/docs/grafana/latest/administration/configuration/#plugins) for Grafana.
+3. [Restart](https://grafana.com/docs/grafana/latest/installation/restart-grafana/) the Grafana server.
+4. Select **Pixie Grafana Datasource Plugin** from the list of installed datasource plugins in Grafana.
