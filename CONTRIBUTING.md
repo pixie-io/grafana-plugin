@@ -1,105 +1,82 @@
 # Contributing Guidelines
 
-Pixie welcomes contributions from the community. This document outlines the conventions that should be followed when making a contribution.
+## Sign Your Work
 
-## Contact Us
-For any questions regarding Pixie or the contribution process, feel free to reach out to us:
+The sign-off is a simple line at the end of the explanation for a commit. All commits needs to be
+signed. Your signature certifies that you wrote the patch or otherwise have the right to contribute
+the material. The rules are pretty simple, if you can certify the below (from
+[developercertificate.org](https://developercertificate.org/)):
 
-- Email: community@pixielabs.ai
-- Slack: [slackin.withpixie.ai](slackin.withpixie.ai)
+```
+Developer Certificate of Origin
+Version 1.1
 
-## Where to start?
-You can contribute to Pixie in many ways. This includes, but is not limited to:
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+1 Letterman Drive
+Suite D4700
+San Francisco, CA, 94129
 
-- Bug and feature reports
-- Documentation 
-- Development of features and bug fixes
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
 
-If you are interested in helping us shape our community, you can also [apply here](https://pixielabs.ai/community/) to be a Pixienaut.
+Developer's Certificate of Origin 1.1
 
-## Contribution Process
-### Reporting Bugs and Creating Issues
-Reporting bugs is one of the most helpful ways to contribute to Pixie. Bugs may be reported by filing a Github issue in the appropriate repository. For bugs regarding Pixie, file an issue in the `pixie` repo. For reporting inaccurate documentation, file an issue in the `pixie-docs` repo, etc. Please follow the template when filing an issue and provide as much information as possible.
+By making a contribution to this project, I certify that:
 
-Before reporting a bug, we encourage you to search the existing Github issues to ensure that the bug has not already been filed. 
+(a) The contribution was created in whole or in part by me and I
+    have the right to submit it under the open source license
+    indicated in the file; or
 
-### Code Contributions
-The project is still in its early stages, and we are a small team actively working on delivering our roadmap. For all changes, regardless of size, please create a Github issue that details the bug or feature being addressed before submitting a pull request. In the Github issue, contributors may discuss the viability of the solution, alternatives, and considerations. 
+(b) The contribution is based upon previous work that, to the best
+    of my knowledge, is covered under an appropriate open source
+    license and I have the right under that license to submit that
+    work with modifications, whether created in whole or in part
+    by me, under the same open source license (unless I am
+    permitted to submit under a different license), as indicated
+    in the file; or
 
-#### Contribution Roadmap
-As we are still an early-stage open source project, more changes to the contribution guidelines will follow in the coming months. We are actively working on opening our JIRA for issue tracking.
+(c) The contribution was provided directly to me by some other
+    person who certified (a), (b) or (c) and I have not modified
+    it.
 
-#### Contribution Flow
-1. Steps to making a code contribution to Pixie will generally look like the following:
-2. Fork the repository on Github.
-3. Create a new branch.
-4. Make your changes in organized commits.
-5. Push your branch to your fork.
-6. Submit a pull request to the original repository.
-7. Make any changes as requested by the maintainers.
-8. Once accepted by a maintainer, it will be merged into the original repository by a maintainer.
+(d) I understand and agree that this project and the contribution
+    are public and that a record of the contribution (including all
+    personal information I submit with it, including my sign-off) is
+    maintained indefinitely and may be redistributed consistent with
+    this project or the open source license(s) involved.
+```
 
-#### Contribution Checklist
-When making a contribution to the repository, please ensure that the following is addressed.
+Then you just add a line to every git commit message:
 
-1. Code follows Pixie’s coding style guide.
-2. All existing tests must pass, and new tests must be added for the bug/feature in question.
-3. Contributor License agreement must be signed.
+    Signed-off-by: Joe Smith <joe.smith@example.com>
 
-#### Coding Style
-Please refer to the style guide directory for more details.
+Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
-#### Commit Messages
-Commit messages should provide enough information about what has changed and why. Please follow the templates for how this information should be detailed.
+If you set your `user.name` and `user.email` git configs, you can sign your commit automatically
+with `git commit -s`.
 
-#### CLA
-All code contributions require the [Contributor License Agreement](https://github.com/pixie-labs/pixie/blob/main/CLA.md). The CLA can be signed when creating your first PR.
+Note: If your git config information is set properly then viewing the `git log` information for your
+ commit will look something like this:
 
-### Building from source: front-end
-Once the repo has been cloned, please:
+```
+Author: Joe Smith <joe.smith@example.com>
+Date:   Thu Feb 2 11:41:15 2018 -0800
 
-1. Install dependencies
+    Update README
 
-   ```bash
-   yarn install
-   ```
+    Signed-off-by: Joe Smith <joe.smith@example.com>
+```
 
-2. Build plugin in development mode or run in watch mode
+Notice the `Author` and `Signed-off-by` lines match. If they don't your PR will be rejected by the
+automated DCO check.
 
-   ```bash
-   yarn dev
-   ```
+## Support Channels
 
-   or
+Whether you are a user or contributor, official support channels include:
 
-   ```bash
-   yarn watch
-   ```
+- [Issues](https://github.com/pixie-io/docs.px.dev/issues)
+- [Pixie Slack](https://slackin.px.dev)
 
-3. Build plugin in production mode
-
-   ```bash
-   yarn build
-   ```
-
-### Building from source: back-end
-
-1. Update [Grafana plugin SDK for Go](https://grafana.com/docs/grafana/latest/developers/plugins/backend/grafana-plugin-sdk-for-go/) dependency to the latest minor version:
-
-   ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
-   ```
-
-2. Build backend plugin binaries for Linux, Windows and Darwin:
-
-   ```bash
-   mage -v
-   ```
-
-3. List all available Mage targets for additional commands:
-
-   ```bash
-   mage -l
-   ```   
-4. Please ensure that your Grafana configuration file is appropriately 
-edited to detect the plugin binaries. Additional details [here](https://grafana.com/docs/grafana/latest/administration/configuration/).
+Before opening a new issue or submitting a new pull request, it's helpful to search the project -
+it's likely that another user has already reported the issue you're facing, or it's a known issue
+that we're already aware of. It is also worth asking on the Slack channels.
