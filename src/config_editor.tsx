@@ -21,7 +21,7 @@ import { LegacyForms } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { PixieDataSourceOptions, PixieSecureDataSourceOptions } from './types';
 
-const { SecretFormField } = LegacyForms;
+const { FormField, SecretFormField } = LegacyForms;
 
 interface Props extends DataSourcePluginOptionsEditorProps<PixieDataSourceOptions> {}
 
@@ -48,6 +48,18 @@ export class ConfigEditor extends PureComponent<Props, State> {
       secureJsonData: {
         ...options?.secureJsonData,
         clusterId: event.target.value,
+      },
+    });
+  };
+
+  onCloudAddrChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+
+    onOptionsChange({
+      ...options,
+      secureJsonData: {
+        ...options?.secureJsonData,
+        cloudAddr: event.target.value,
       },
     });
   };
@@ -84,6 +96,22 @@ export class ConfigEditor extends PureComponent<Props, State> {
     });
   };
 
+  onResetCloudAddr = () => {
+    const { onOptionsChange, options } = this.props;
+
+    onOptionsChange({
+      ...options,
+      secureJsonFields: {
+        ...options.secureJsonFields,
+        cloudAddr: false,
+      },
+      secureJsonData: {
+        ...options.secureJsonData,
+        cloudAddr: '',
+      },
+    });
+  };
+
   render() {
     const { options } = this.props;
     const { secureJsonFields } = options;
@@ -98,7 +126,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               value={secureJsonData.apiKey || ''}
               label="Pixie API Key"
               placeholder="Pixie API Key"
-              labelWidth={6}
+              labelWidth={20}
               inputWidth={20}
               onReset={this.onResetAPIKey}
               onChange={this.onAPIKeyChange}
@@ -109,14 +137,28 @@ export class ConfigEditor extends PureComponent<Props, State> {
         <div className="gf-form-inline">
           <div className="gf-form">
             <SecretFormField
-              isConfigured={secureJsonFields?.clusterId as boolean}
+              isConfigured={(secureJsonFields && secureJsonFields.clusterId) as boolean}
               value={secureJsonData.clusterId || ''}
               label="Cluster ID"
               placeholder="Cluster ID"
-              labelWidth={6}
+              labelWidth={20}
               inputWidth={20}
               onReset={this.onResetClusterId}
               onChange={this.onClusterIdChange}
+            />
+          </div>
+        </div>
+
+        <div className="gf-form-inline">
+          <div className="gf-form">
+            <FormField
+              value={secureJsonData.cloudAddr || ''}
+              label="Pixie Cloud address (if not using withpixie.ai)"
+              placeholder="withpixie.ai:443"
+              labelWidth={20}
+              inputWidth={20}
+              onReset={this.onResetCloudAddr}
+              onChange={this.onCloudAddrChange}
             />
           </div>
         </div>
