@@ -33,4 +33,6 @@ export interface PixieSecureDataSourceOptions {
   apiKey?: string;
   // ID of the Pixie cluster to query.
   clusterId?: string;
+  // Address of Pixie cloud.
+  cloudAddr?: string;
 }

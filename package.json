@@ -13,10 +13,10 @@
   "author": "The Pixie Authors",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.5.4",
+    "@grafana/data": "7.5.10",
     "@grafana/toolkit": "7.5.4",
     "@grafana/runtime": "7.5.4",
-    "@grafana/ui": "7.5.4",
+    "@grafana/ui": "7.5.10",
     "@types/lodash": "4.14.172"
   },
   "resolutions": {
