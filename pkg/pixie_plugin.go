@@ -39,8 +39,9 @@ type GrafanaMacro string
 
 const (
 	// Define keys to retrieve configs passed from UI.
-	apiKeyStr       = "apiKey"
-	clusterIDKeyStr = "clusterId"
+	apiKeyField       = "apiKey"
+	cloudAddrField    = "cloudAddr"
+	clusterIDField    = "clusterId"
 	// timeFromMacro is the start of the time range of a query.
 	timeFromMacro GrafanaMacro = "__time_from"
 	// timeToMacro is the end of the time range of a query.
@@ -101,6 +102,26 @@ type queryModel struct {
 	PxlScript string `json:"pxlScript"`
 }
 
+func createVizierClient(ctx context.Context, apiKey string, clusterID string, cloudAddr string) (*pxapi.VizierClient, error) {
+	var client *pxapi.Client
+	var err error
+	// First, create a client connecting to Pixie Cloud.
+	if cloudAddr == "" {
+		client, err = pxapi.NewClient(ctx, pxapi.WithAPIKey(apiKey))
+	} else {
+		client, err = pxapi.NewClient(ctx, pxapi.WithAPIKey(apiKey), pxapi.WithCloudAddr(cloudAddr))
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Next, create a client that connects to the particular Vizier instance matching `clusterID`.
+	vzClient, err := client.NewVizierClient(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	return vzClient, nil
+}
+
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
@@ -110,22 +131,13 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 		return nil, fmt.Errorf("Error unmarshalling JSON: %v", err)
 	}
 
-	// API Token.
-	apiTokenStr := config[apiKeyStr]
+	apiToken := config[apiKeyField]
+	clusterID := config[clusterIDField]
+	cloudAddr := config[cloudAddrField]
 
-	// Create a Pixie client.
-	client, err := pxapi.NewClient(ctx, pxapi.WithAPIKey(apiTokenStr))
+	vz, err := createVizierClient(ctx, apiToken, clusterID, cloudAddr)
 	if err != nil {
-		log.DefaultLogger.Warn("Unable to create Pixie Client.")
-		return nil, err
-	}
-
-	// Create a connection to the cluster.
-	clusterIDStr := config[clusterIDKeyStr]
-
-	vz, err := client.NewVizierClient(ctx, clusterIDStr)
-	if err != nil {
-		log.DefaultLogger.Warn("Unable to create Vizier Client.")
+		log.DefaultLogger.Error(fmt.Sprintf("Unable to create Vizier Client: %+v", err))
 		return nil, err
 	}
 
@@ -180,8 +192,16 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 // CheckHealth implements the Grafana service health check API.
 func (td *PixieDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	status := backend.HealthStatusOk
-	message := "Data source is working"
+	message := "Connection to Pixie cluster successfully configured"
+	config := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData
 
+	vz, err := createVizierClient(ctx, config[apiKeyField], config[clusterIDField], config[cloudAddrField])
+	if vz == nil || err != nil {
+		status = backend.HealthStatusError
+		message = fmt.Sprintf("Error connecting to Vizier: %s", err.Error())
+	}
+
+	log.DefaultLogger.Warn(message)
 	return &backend.CheckHealthResult{
 		Status:  status,
 		Message: message,
