@@ -10,7 +10,7 @@
     "description": "Pixie's Grafana Datasource Plugin",
     "author": {
       "name": "The Pixie Authors",
-      "url": "https://pixielabs.ai/"
+      "url": "https://px.dev/"
     },
     "keywords": ["Pixie", "Grafana", "Kubernetes", "eBPF", "Open Source"],
     "logos": {
@@ -20,16 +20,16 @@
     "links": [
       {
         "name": "Website",
-        "url": "https://github.com/pixie-labs/pixie"
+        "url": "https://github.com/pixie-io/pixie"
       },
       {
         "name": "License",
-        "url": "https://github.com/pixie-labs/pixie/blob/main/LICENSE"
+        "url": "https://github.com/pixie-io/pixie/blob/main/LICENSE"
       }
     ],
     "screenshots": [],
-    "version": "0.0.1",
-    "updated": "2021-04-01"
+    "version": "0.0.2",
+    "updated": "2021-10-28"
   },
   "dependencies": {
     "grafanaDependency": ">=7.0.0",
