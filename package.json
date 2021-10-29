@@ -13,7 +13,7 @@
   "author": "The Pixie Authors",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.5.10",
+    "@grafana/data": "7.5.11",
     "@grafana/toolkit": "8.0.0",
     "@grafana/runtime": "7.5.10",
     "@grafana/ui": "7.5.10",

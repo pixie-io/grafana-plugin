@@ -1390,6 +1390,20 @@
     rxjs "6.6.3"
     xss "1.0.6"
 
+"@grafana/data@7.5.11":
+  version "7.5.11"
+  resolved "https://registry.yarnpkg.com/@grafana/data/-/data-7.5.11.tgz#bebe312705c4b4225c16bf8853aa15dceb67dcea"
+  integrity sha512-pUPum4Aft7Dp1x6lWysEPPZuB2bDxHMAFJbGvAFFsYsCSaPmqBKdq3X3ceuSkqXQ9FfaDbVFt4bbIrH6p6P2dQ==
+  dependencies:
+    "@braintree/sanitize-url" "4.0.0"
+    "@types/d3-interpolate" "^1.3.1"
+    apache-arrow "0.16.0"
+    eventemitter3 "4.0.7"
+    lodash "4.17.21"
+    marked "2.0.1"
+    rxjs "6.6.3"
+    xss "1.0.6"
+
 "@grafana/data@8.0.0":
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@grafana/data/-/data-8.0.0.tgz#860f0d62b4efe5bd7d67e94172ec0527cfa5e48a"
