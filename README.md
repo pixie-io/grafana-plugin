@@ -18,29 +18,29 @@ This plugin allows Grafana users to use Pixie as a datasource in their Grafana d
 
 <img src=".readme_assets/http-errors.png" alt="HTTP errors by service" width="525">
 
-
 ## Getting started
 
 [Install Pixie](https://docs.pixielabs.ai/installing-pixie/) on your Kubernetes cluster.
 
-
 ## Installing the Plugin
 
 ### On Grafana Cloud
+
 The Pixie datasource plugin is [available](https://grafana.com/grafana/plugins/pixie-pixie-datasource/?tab=installation) on Grafana Cloud, which makes it easy to install Grafana plugins to your Grafana Cloud instance.
 
 ### On a local Grafana instance
+
 In order to deploy to a local Grafana instance, you can run the following command:
+
 ```bash
 grafana-cli plugins install pixie-pixie-datasource
 ```
 
 ## Using the plugin
 
-Check out the Grafana plugin tutorial on Pixie's [docs](https://docs.px.dev/tutorials/integrations/grafana).
+Check out the Grafana Pixie plugin [tutorial](https://docs.px.dev/tutorials/integrations/grafana) and [example queries](https://github.com/pixie-io/grafana-plugin/examples).
 
 Pixie's data can be accessed using [PxL](https://docs.px.dev/reference/pxl/), the query language for the data it collects. This datasource allows Grafana users to enter a PxL script when using Pixie as a datasource for a panel in their dashboard.
-
 
 ## Development
 
@@ -53,6 +53,7 @@ git clone git@github.com:pixie-io/grafana-plugin.git
 ```
 
 ### Building from source: front-end
+
 Once the repo has been cloned, please:
 
 1. Install dependencies
