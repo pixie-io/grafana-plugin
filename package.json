@@ -16,7 +16,7 @@
     "@grafana/data": "7.5.11",
     "@grafana/toolkit": "8.2.0",
     "@grafana/runtime": "7.5.11",
-    "@grafana/ui": "7.5.11",
+    "@grafana/ui": "7.5.12",
     "@types/lodash": "4.14.175"
   },
   "resolutions": {
