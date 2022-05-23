@@ -25,7 +25,7 @@ as it uses Grafana macros for adding Grafana dashboard context.
 import px
 
 # Import HTTP events table.
-df = px.DataFrame(table='http_events', start_time='-5m')
+df = px.DataFrame(table='http_events', start_time=__time_from)
 
 # Add columns for service, namespace info.
 df.namespace = df.ctx['namespace']
