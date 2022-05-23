@@ -29,7 +29,7 @@ This query outputs a table of HTTP events (request and response pairs). This que
 
 <img src=".readme_assets/http-data-filtered.png" alt="HTTP spans" width="525">
 
-## [HTTP Service Graph](https://github.com/pixie-io/pixie-demos/http-service-traffic-node-graph.pxl)
+## [HTTP Service Graph](https://github.com/pixie-io/grafana-plugin/blob/main/examples/http-service-map.pxl)
 
 This query outputs a graph of the HTTP traffic between the services in your cluster. Use with Grafana's node graph panel. Hover over a graph edge to see average error rate (main stat) and P90 latency in milliseconds (secondary stat).
 
