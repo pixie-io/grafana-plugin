@@ -38,7 +38,7 @@ grafana-cli plugins install pixie-pixie-datasource
 
 ## Using the plugin
 
-Check out the Grafana Pixie plugin [tutorial](https://docs.px.dev/tutorials/integrations/grafana) and [example queries](https://github.com/pixie-io/grafana-plugin/examples).
+Check out the Grafana Pixie plugin [tutorial](https://docs.px.dev/tutorials/integrations/grafana) and [example queries](https://github.com/pixie-io/grafana-plugin/tree/main/examples).
 
 Pixie's data can be accessed using [PxL](https://docs.px.dev/reference/pxl/), the query language for the data it collects. This datasource allows Grafana users to enter a PxL script when using Pixie as a datasource for a panel in their dashboard.
 
