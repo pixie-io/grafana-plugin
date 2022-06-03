@@ -37,7 +37,7 @@ export const scripts = new Map(
   })
 );
 
-// Construct options list which is injested by Select component in 
+// Construct options list which is injested by Select component in
 export const options = scriptsRaw.map((script: Script) => {
   return {
     label: script.name,

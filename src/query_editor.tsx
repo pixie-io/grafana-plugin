@@ -62,7 +62,6 @@ export class QueryEditor extends PureComponent<Props> {
           value={pxlScript || ''}
           onChange={this.onPxlScriptChange.bind(this)}
           label="PxL Script"
-          css={undefined}
         />
       </div>
     );
