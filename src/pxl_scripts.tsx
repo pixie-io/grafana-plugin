@@ -31,16 +31,10 @@ interface Script {
 const scriptsRaw: Script[] = [customQuery, exampleQuery, httpDataFiltered, httpErrorsPerService];
 
 // Make a map for easier access of scripts
-export const scripts = new Map(
-  scriptsRaw.map((script) => {
-    return [script.name, script];
-  })
-);
+export const scripts: Map<string, Script> = new Map(scriptsRaw.map((script) => [script.name, script]));
 
 // Construct options list which is injested by Select component in
-export const options = scriptsRaw.map((script: Script) => {
-  return {
-    label: script.name,
-    description: script.description,
-  };
-});
+export const scriptOptions = scriptsRaw.map((script: Script) => ({
+  label: script.name,
+  description: script.description,
+}));

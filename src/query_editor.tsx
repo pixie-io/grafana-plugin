@@ -22,7 +22,7 @@ import React, { ChangeEvent, PureComponent } from 'react';
 import { TextArea, Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
-import { options, scripts } from 'pxl_scripts';
+import { scriptOptions, scripts } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
@@ -34,7 +34,7 @@ export class QueryEditor extends PureComponent<Props> {
     onRunQuery();
   }
 
-  onSelect(option: SelectableValue<number>) {
+  onScriptSelect(option: SelectableValue<number>) {
     if (option.label != null) {
       // Load in predefined scripts to the script text box
 
@@ -53,7 +53,7 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form">
-        <Select options={options} onChange={this.onSelect.bind(this)} />
+        <Select options={scriptOptions} onChange={this.onScriptSelect.bind(this)} />
         <TextArea
           id="PxL Script"
           name="PxL Script"
