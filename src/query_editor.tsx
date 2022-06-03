@@ -37,9 +37,13 @@ export class QueryEditor extends PureComponent<Props> {
   onSelect(option: SelectableValue<number>) {
     if (option.label != null) {
       // Load in predefined scripts to the script text box
-      const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: scripts[option.label] });
-      onRunQuery();
+
+      const script = scripts.get(option.label);
+      if (script !== undefined) {
+        const { onChange, query, onRunQuery } = this.props;
+        onChange({ ...query, pxlScript: script.script });
+        onRunQuery();
+      }
     }
   }
 
@@ -58,6 +62,7 @@ export class QueryEditor extends PureComponent<Props> {
           value={pxlScript || ''}
           onChange={this.onPxlScriptChange.bind(this)}
           label="PxL Script"
+          css={undefined}
         />
       </div>
     );
