@@ -16,6 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { SelectableValue } from '@grafana/data';
+
 const customQuery = require('./pxl_scripts/custom-query.json');
 const exampleQuery = require('pxl_scripts/example-query.json');
 const httpDataFiltered = require('pxl_scripts/http-data-filtered.json');
@@ -30,11 +32,9 @@ interface Script {
 // Load predefined scripts
 const scriptsRaw: Script[] = [customQuery, exampleQuery, httpDataFiltered, httpErrorsPerService];
 
-// Make a map for easier access of scripts
-export const scripts: Map<string, Script> = new Map(scriptsRaw.map((script) => [script.name, script]));
-
 // Construct options list which is injested by Select component in
-export const scriptOptions = scriptsRaw.map((script: Script) => ({
-  label: script.name,
-  description: script.description,
+export const scriptOptions: Array<SelectableValue<string>> = scriptsRaw.map((scriptObject: Script) => ({
+  label: scriptObject.name,
+  description: scriptObject.description,
+  value: scriptObject.script,
 }));
