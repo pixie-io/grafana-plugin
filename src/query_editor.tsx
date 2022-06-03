@@ -61,9 +61,7 @@ export class QueryEditor extends PureComponent<Props> {
           onValueChange={this.onPxlScriptChange.bind(this)}
           highlight={(code) => {
             if (code !== undefined) {
-              let highlighedCode = highlight(code, languages.python, 'python');
-              console.log(highlighedCode);
-              return highlighedCode;
+              return highlight(code, languages.python, 'python');
             } else {
               return '';
             }
