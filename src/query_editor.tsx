@@ -33,6 +33,16 @@ import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
+const editorStyle = {
+  fontFamily: 'Consolas, monaco, monospace',
+  fontSize: 12,
+  width: '100%',
+  marginTop: '10px',
+  minHeight: '500px',
+  overflow: 'auto',
+  backgroundColor: 'rgb(18, 18, 18)',
+};
+
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
     const { onChange, query, onRunQuery } = this.props;
@@ -53,9 +63,13 @@ export class QueryEditor extends PureComponent<Props> {
     const { pxlScript } = query;
 
     return (
-      <div className="gf-form m-2" style={{ margin: '10px' }}>
-        <Select options={scriptOptions} width={24} onChange={this.onScriptSelect.bind(this)} />
-
+      <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
+        <Select
+          options={scriptOptions}
+          width={32}
+          onChange={this.onScriptSelect.bind(this)}
+          defaultValue={scriptOptions[0]}
+        />
         <Editor
           value={pxlScript}
           onValueChange={this.onPxlScriptChange.bind(this)}
@@ -67,15 +81,7 @@ export class QueryEditor extends PureComponent<Props> {
             }
           }}
           padding={10}
-          style={{
-            fontFamily: 'Consolas, monaco, monospace',
-            fontSize: 12,
-            marginLeft: '10px',
-            width: '80%',
-            minHeight: '500px',
-            overflow: 'auto',
-            backgroundColor: 'rgb(18, 18, 18)',
-          }}
+          style={editorStyle}
         />
       </div>
     );
