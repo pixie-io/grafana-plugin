@@ -68,7 +68,7 @@ export class QueryEditor extends PureComponent<Props> {
           }}
           padding={10}
           style={{
-            fontFamily: '"Fira code", "Fira Mono", monospace',
+            fontFamily: 'Consolas, monaco, monospace',
             fontSize: 12,
             marginLeft: '10px',
             width: '80%',

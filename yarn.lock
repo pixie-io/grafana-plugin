@@ -2559,13 +2559,6 @@
     "@types/react-dom" "*"
     "@types/react-transition-group" "*"
 
-"@types/react-syntax-highlighter@^15.5.1":
-  version "15.5.1"
-  resolved "https://registry.yarnpkg.com/@types/react-syntax-highlighter/-/react-syntax-highlighter-15.5.1.tgz#0c459cdd94a882df05778e93a1514430cc641043"
-  integrity sha512-+yD6D8y21JqLf89cRFEyRfptVMqo2ROHyAlysRvFwT28gT5gDo3KOiXHwGilHcq9y/OKTjlWK0f/hZUicrBFPQ==
-  dependencies:
-    "@types/react" "*"
-
 "@types/react-table@7.0.12":
   version "7.0.12"
   resolved "https://registry.yarnpkg.com/@types/react-table/-/react-table-7.0.12.tgz#cb57c8dfb110f8c2d0f04b9d44a70f9235a13b27"
