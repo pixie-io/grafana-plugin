@@ -19,9 +19,10 @@
 import defaults from 'lodash/defaults';
 
 import React, { ChangeEvent, PureComponent } from 'react';
-import { TextArea } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import { TextArea, Select } from '@grafana/ui';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from './datasource';
+import { scriptOptions, scripts } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
@@ -33,12 +34,26 @@ export class QueryEditor extends PureComponent<Props> {
     onRunQuery();
   }
 
+  onScriptSelect(option: SelectableValue<number>) {
+    if (option.label != null) {
+      // Load in predefined scripts to the script text box
+
+      const script = scripts.get(option.label);
+      if (script !== undefined) {
+        const { onChange, query, onRunQuery } = this.props;
+        onChange({ ...query, pxlScript: script.script });
+        onRunQuery();
+      }
+    }
+  }
+
   render() {
     const query = defaults(this.props.query, defaultQuery);
     const { pxlScript } = query;
 
     return (
       <div className="gf-form">
+        <Select options={scriptOptions} onChange={this.onScriptSelect.bind(this)} />
         <TextArea
           id="PxL Script"
           name="PxL Script"
