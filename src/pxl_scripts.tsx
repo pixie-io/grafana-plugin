@@ -18,7 +18,7 @@
 
 import { SelectableValue } from '@grafana/data';
 
-const customQuery = require('./pxl_scripts/custom-query.json');
+const customQuery = require('pxl_scripts/custom-query.json');
 const exampleQuery = require('pxl_scripts/example-query.json');
 const httpDataFiltered = require('pxl_scripts/http-data-filtered.json');
 const httpErrorsPerService = require('pxl_scripts/http-errors-per-service.json');

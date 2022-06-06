@@ -18,19 +18,35 @@
 
 import defaults from 'lodash/defaults';
 
-import React, { ChangeEvent, PureComponent } from 'react';
-import { TextArea, Select } from '@grafana/ui';
+import React, { PureComponent } from 'react';
+import { Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
+
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-python';
+import 'prism-themes/themes/prism-vsc-dark-plus.css';
+
 import { DataSource } from './datasource';
 import { scriptOptions } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
+const editorStyle = {
+  fontFamily: 'Consolas, monaco, monospace',
+  fontSize: 12,
+  width: '100%',
+  marginTop: '10px',
+  minHeight: '500px',
+  overflow: 'auto',
+  backgroundColor: 'rgb(18, 18, 18)',
+};
+
 export class QueryEditor extends PureComponent<Props> {
-  onPxlScriptChange(event: ChangeEvent<HTMLTextAreaElement>) {
+  onPxlScriptChange(event: string) {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, pxlScript: event.target.value });
+    onChange({ ...query, pxlScript: event });
     onRunQuery();
   }
 
@@ -47,16 +63,25 @@ export class QueryEditor extends PureComponent<Props> {
     const { pxlScript } = query;
 
     return (
-      <div className="gf-form">
-        <Select options={scriptOptions} onChange={this.onScriptSelect.bind(this)} />
-        <TextArea
-          id="PxL Script"
-          name="PxL Script"
-          rows={20}
-          width={4}
-          value={pxlScript || ''}
-          onChange={this.onPxlScriptChange.bind(this)}
-          label="PxL Script"
+      <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
+        <Select
+          options={scriptOptions}
+          width={32}
+          onChange={this.onScriptSelect.bind(this)}
+          defaultValue={scriptOptions[0]}
+        />
+        <Editor
+          value={pxlScript}
+          onValueChange={this.onPxlScriptChange.bind(this)}
+          highlight={(code) => {
+            if (code !== undefined) {
+              return highlight(code, languages.python, 'python');
+            } else {
+              return '';
+            }
+          }}
+          padding={10}
+          style={editorStyle}
         />
       </div>
     );
