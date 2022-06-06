@@ -25,6 +25,10 @@ export interface PixieDataQuery extends DataQuery {
   pxlScript: string;
 }
 
+export interface PixieVariableQuery {
+  cluster: string;
+}
+
 export const defaultQuery: Partial<PixieDataQuery> = {
   pxlScript: scriptOptions[0].value,
 };

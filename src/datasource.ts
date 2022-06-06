@@ -18,7 +18,7 @@
 
 import { DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery } from './types';
+import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
@@ -34,5 +34,22 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
           })
         : '',
     };
+  }
+
+  async fetchMetricNames(cluster: string) {
+    return {
+      data: [{ name: 'test' }],
+    };
+  }
+
+  async metricFindQuery(query: PixieVariableQuery, options?: any) {
+    // Retrieve DataQueryResponse based on query.
+    const response = await this.fetchMetricNames(query.cluster);
+
+    // Convert query results to a MetricFindValue[]
+    const values = response.data.map((frame) => ({ text: frame.name }));
+    console.log(values);
+
+    return values;
   }
 }
