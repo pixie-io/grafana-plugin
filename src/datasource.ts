@@ -17,11 +17,19 @@
  */
 
 import { DataSourceInstanceSettings } from '@grafana/data';
-import { DataSourceWithBackend } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
     super(instanceSettings);
+  }
+
+  applyTemplateVariables(query: PixieDataQuery) {
+    const templateSrv = getTemplateSrv();
+    return {
+      ...query,
+      pxlScript: query.pxlScript ? templateSrv.replace(query.pxlScript) : '',
+    };
   }
 }
