@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataSourceInstanceSettings } from '@grafana/data';
+import { DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery } from './types';
 
@@ -25,11 +25,14 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     super(instanceSettings);
   }
 
-  applyTemplateVariables(query: PixieDataQuery) {
-    const templateSrv = getTemplateSrv();
+  applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
     return {
       ...query,
-      pxlScript: query.pxlScript ? templateSrv.replace(query.pxlScript) : '',
+      pxlScript: query.pxlScript
+        ? getTemplateSrv().replace(query.pxlScript, {
+            ...scopedVars,
+          })
+        : '',
     };
   }
 }
