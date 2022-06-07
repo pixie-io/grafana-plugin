@@ -17,19 +17,17 @@
  */
 
 import defaults from 'lodash/defaults';
-
 import React, { PureComponent } from 'react';
-import { Select } from '@grafana/ui';
+import { Select, MultiSelect } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
-
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
-
 import { DataSource } from './datasource';
 import { scriptOptions } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
+import { makeFilteringScript, podColumnOptions, tabularScripts } from 'column_filtering';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -51,9 +49,18 @@ export class QueryEditor extends PureComponent<Props> {
   }
 
   onScriptSelect(option: SelectableValue<string>) {
-    if (option.value !== undefined) {
+    if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: option.value });
+      onChange({ ...query, pxlScript: option.value, scriptName: option.label });
+      onRunQuery();
+    }
+  }
+
+  filterPodColumns(obj: any[]) {
+    if (obj) {
+      const constFilteredScript = makeFilteringScript(obj);
+      const { onChange, query, onRunQuery } = this.props;
+      onChange({ ...query, pxlScript: constFilteredScript });
       onRunQuery();
     }
   }
@@ -64,12 +71,26 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <Select
-          options={scriptOptions}
-          width={32}
-          onChange={this.onScriptSelect.bind(this)}
-          defaultValue={scriptOptions[0]}
-        />
+        <div style={{ display: 'flex' }}>
+          <Select
+            options={scriptOptions}
+            width={32}
+            onChange={this.onScriptSelect.bind(this)}
+            defaultValue={scriptOptions[0]}
+          />
+
+          {tabularScripts.includes(query.scriptName) ? (
+            <MultiSelect
+              placeholder="Filter Columns"
+              onChange={this.filterPodColumns.bind(this)}
+              options={podColumnOptions}
+              width={32}
+              inputId="multi-select-ops"
+            />
+          ) : (
+            <></>
+          )}
+        </div>
         <Editor
           value={pxlScript}
           onValueChange={this.onPxlScriptChange.bind(this)}

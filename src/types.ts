@@ -23,6 +23,7 @@ import { scriptOptions } from 'pxl_scripts';
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
   pxlScript: string;
+  scriptName: string;
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {

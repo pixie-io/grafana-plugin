@@ -22,6 +22,7 @@ const customQuery = require('pxl_scripts/custom-query.json');
 const exampleQuery = require('pxl_scripts/example-query.json');
 const httpDataFiltered = require('pxl_scripts/http-data-filtered.json');
 const httpErrorsPerService = require('pxl_scripts/http-errors-per-service.json');
+const podMetrics = require('pxl_scripts/pods-metrics.json');
 
 interface Script {
   name: string;
@@ -30,7 +31,7 @@ interface Script {
 }
 
 // Load predefined scripts
-const scriptsRaw: Script[] = [customQuery, exampleQuery, httpDataFiltered, httpErrorsPerService];
+const scriptsRaw: Script[] = [customQuery, exampleQuery, httpDataFiltered, httpErrorsPerService, podMetrics];
 
 // Construct options list which is injested by Select component in
 export const scriptOptions: Array<SelectableValue<string>> = scriptsRaw.map((scriptObject: Script) => ({
