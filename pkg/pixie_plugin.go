@@ -39,9 +39,9 @@ type GrafanaMacro string
 
 const (
 	// Define keys to retrieve configs passed from UI.
-	apiKeyField       = "apiKey"
-	cloudAddrField    = "cloudAddr"
-	clusterIDField    = "clusterId"
+	apiKeyField    = "apiKey"
+	cloudAddrField = "cloudAddr"
+	clusterIDField = "clusterId"
 	// timeFromMacro is the start of the time range of a query.
 	timeFromMacro GrafanaMacro = "__time_from"
 	// timeToMacro is the end of the time range of a query.
@@ -99,7 +99,8 @@ func (td *PixieDatasource) QueryData(ctx context.Context, req *backend.QueryData
 
 type queryModel struct {
 	// The PxL script passed in by the user.
-	PxlScript string `json:"pxlScript"`
+	PxlScript   string `json:"pxlScript"`
+	ClusterFlag bool   `json:bool`
 }
 
 func createVizierClient(ctx context.Context, apiKey string, clusterID string, cloudAddr string) (*pxapi.VizierClient, error) {
@@ -116,6 +117,7 @@ func createVizierClient(ctx context.Context, apiKey string, clusterID string, cl
 	}
 	// Next, create a client that connects to the particular Vizier instance matching `clusterID`.
 	vzClient, err := client.NewVizierClient(ctx, clusterID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +136,10 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	apiToken := config[apiKeyField]
 	clusterID := config[clusterIDField]
 	cloudAddr := config[cloudAddrField]
+
+	if qm.ClusterFlag {
+		return td.queryClusters(ctx, apiToken)
+	}
 
 	vz, err := createVizierClient(ctx, apiToken, clusterID, cloudAddr)
 	if err != nil {
@@ -186,6 +192,46 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 				tablePrinter.frame)
 		}
 	}
+	return response, nil
+}
+
+func (td *PixieDatasource) queryClusters(ctx context.Context, apiToken string) (*backend.DataResponse, error) {
+
+	response := &backend.DataResponse{}
+
+	client, err := pxapi.NewClient(ctx, pxapi.WithAPIKey(apiToken))
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshalling JSON: %v", err)
+	}
+
+	var viziers []*pxapi.VizierInfo
+	viziers, err = client.ListViziers(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error with getting viziers: $s", err)
+	}
+
+	vizierIds := make([]string, 0)
+	vizierNames := make([]string, 0)
+
+	for _, vizier := range viziers {
+		vizierIds = append(vizierIds, vizier.ID)
+		vizierNames = append(vizierNames, vizier.Name)
+	}
+
+	vizierFrame := data.NewFrame(
+		"Vizier Clusters",
+		data.NewField("id", data.Labels{}, vizierIds),
+		data.NewField("name", data.Labels{}, vizierNames),
+	)
+
+	response.Frames = append(response.Frames, vizierFrame)
+
+	backend.Logger.Debug(fmt.Sprintf("number of viziers: $d", len(viziers)))
+	backend.Logger.Debug(fmt.Sprintf("id: $s, name: $s, status: $s", viziers[0].ID, viziers[0].Name, viziers[0].Status))
+
+	backend.Logger.Debug(vizierFrame.StringTable(10, 10))
+
 	return response, nil
 }
 
