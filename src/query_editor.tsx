@@ -60,7 +60,7 @@ export class QueryEditor extends PureComponent<Props> {
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const { pxlScript } = query;
+    const pxlScript = query?.pxlScript;
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
@@ -71,7 +71,7 @@ export class QueryEditor extends PureComponent<Props> {
           defaultValue={scriptOptions[0]}
         />
         <Editor
-          value={pxlScript}
+          value={pxlScript === undefined ? '' : pxlScript}
           onValueChange={this.onPxlScriptChange.bind(this)}
           highlight={(code) => {
             if (code !== undefined) {

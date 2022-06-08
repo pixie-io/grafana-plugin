@@ -18,28 +18,25 @@
 
 import { SelectableValue } from '@grafana/data';
 import { Select } from '@grafana/ui';
-import React, { useState } from 'react';
-import { PixieVariableQuery } from './types';
+import React from 'react'; //, { useState } from 'react';
 
 interface VariableQueryProps {
-  query: PixieVariableQuery;
-  onChange: (query: PixieVariableQuery, definition: string) => void;
+  query: string;
+  onChange: (query: string, definition: string) => void;
 }
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, query }) => {
-  const [state, setState] = useState(query);
+  // const [state, setState] = useState(query);
 
   const onClusterSelect = (option: SelectableValue<string>) => {
-    if (option.label !== undefined) {
+    if (option.value !== undefined && option.label !== undefined) {
       console.log(option);
-      setState({
-        ...state,
-        cluster: option.label,
-      });
+      // setState(option.value);
+      onChange(option.value, option.label);
     }
   };
 
-  const valueOptions = [{ label: 'Clusters' }];
+  const valueOptions = [{ label: 'Clusters', value: 'get-clusters' }];
 
   return (
     <>

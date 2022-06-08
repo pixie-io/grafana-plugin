@@ -22,11 +22,8 @@ import { scriptOptions } from 'pxl_scripts';
 // PixieDataQuery is the interface representing a query in Pixie.
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
-  pxlScript: string;
-}
-
-export interface PixieVariableQuery {
-  cluster: string;
+  pxlScript?: string;
+  clusterFlag?: boolean;
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {

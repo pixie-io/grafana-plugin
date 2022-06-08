@@ -16,13 +16,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
-import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
+import { DataSourceInstanceSettings, ScopedVars, TimeRange } from '@grafana/data';
+import { BackendSrv, DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { PixieDataSourceOptions, PixieDataQuery } from './types';
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
+  backendServ?: BackendSrv;
+
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
     super(instanceSettings);
+    this.backendServ = getBackendSrv();
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
@@ -36,15 +39,44 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     };
   }
 
-  async fetchMetricNames(cluster: string) {
+  async fetchMetricNames(cluster: string, options?: any) {
+    let refId = 'tempvar';
+    if (options && options.variable && options.variable.name) {
+      refId = options.variable.name;
+    }
+
+    const range = options?.range as TimeRange;
+    const interpolatedQuery = {
+      refId: refId,
+      datasource: {
+        type: this.type,
+        uid: this.uid,
+      },
+      clusterFlag: true,
+    };
+
+    options = {
+      ...options,
+      url: '/api/ds/query',
+      method: 'POST',
+      data: {
+        from: range?.from?.valueOf()?.toString(),
+        to: range?.to?.valueOf()?.toString(),
+        queries: [interpolatedQuery],
+      },
+    };
+    console.log(options);
+    const response = await this.backendServ?.fetch(options).toPromise();
+    console.log(response);
+
     return {
       data: [{ name: 'test' }],
     };
   }
 
-  async metricFindQuery(query: PixieVariableQuery, options?: any) {
+  async metricFindQuery(query: string, options?: any) {
     // Retrieve DataQueryResponse based on query.
-    const response = await this.fetchMetricNames(query.cluster);
+    const response = await this.fetchMetricNames(query, options);
 
     // Convert query results to a MetricFindValue[]
     const values = response.data.map((frame) => ({ text: frame.name }));
