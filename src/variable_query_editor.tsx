@@ -18,7 +18,7 @@
 
 import { SelectableValue } from '@grafana/data';
 import { Select } from '@grafana/ui';
-import React from 'react'; //, { useState } from 'react';
+import React from 'react';
 
 interface VariableQueryProps {
   query: string;
@@ -26,12 +26,8 @@ interface VariableQueryProps {
 }
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, query }) => {
-  // const [state, setState] = useState(query);
-
   const onClusterSelect = (option: SelectableValue<string>) => {
     if (option.value !== undefined && option.label !== undefined) {
-      console.log(option);
-      // setState(option.value);
       onChange(option.value, option.label);
     }
   };

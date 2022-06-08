@@ -16,9 +16,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataSourceInstanceSettings, ScopedVars, TimeRange } from '@grafana/data';
-import { BackendSrv, DataSourceWithBackend, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { DataFrame, DataSourceInstanceSettings, ScopedVars, TimeRange, toDataFrame } from '@grafana/data';
+import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery } from './types';
+
+interface ClusterMeta {
+  id: string;
+  name: string;
+}
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
   backendServ?: BackendSrv;
@@ -39,7 +44,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     };
   }
 
-  async fetchMetricNames(cluster: string, options?: any) {
+  async fetchMetricNames(options: any): Promise<FetchResponse | void> {
     let refId = 'tempvar';
     if (options && options.variable && options.variable.name) {
       refId = options.variable.name;
@@ -65,23 +70,50 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
         queries: [interpolatedQuery],
       },
     };
-    console.log(options);
-    const response = await this.backendServ?.fetch(options).toPromise();
-    console.log(response);
 
-    return {
-      data: [{ name: 'test' }],
-    };
+    const response = this.backendServ?.fetch<any>(options);
+    if (response) {
+      return response.toPromise();
+    } else {
+      return Promise.resolve();
+    }
+  }
+
+  /**
+   * Zip fields in the dataframe into a list of individual objects with fields from dataframe.
+   * Ex: if df has n entries, and fields `a` and `b`, this function
+   * will return [{a:value of a in first row of df, b: value of b in the first row of df},
+   *  *values from the second row*, ...]
+   *
+   * @param df grafana dataframe
+   * @returns list of objects with fields names from df
+   */
+  zipGrafanaDataFrame(df: DataFrame) {
+    const zippedData = new Array(df.length);
+
+    for (let i = 0; i < df.length; i++) {
+      zippedData[i] = {};
+    }
+
+    df.fields.forEach((field) => {
+      field.values.toArray().forEach((elem, i) => {
+        zippedData[i][field.name] = elem;
+      });
+    });
+
+    console.log(zippedData);
+    return zippedData;
   }
 
   async metricFindQuery(query: string, options?: any) {
     // Retrieve DataQueryResponse based on query.
-    const response = await this.fetchMetricNames(query, options);
+    const variableName = options.variable.name;
+    const response = await this.fetchMetricNames(options);
+    const vizierFrame = toDataFrame(response!.data.results[variableName].frames[0]);
+    const clusterData: ClusterMeta[] = this.zipGrafanaDataFrame(vizierFrame);
 
-    // Convert query results to a MetricFindValue[]
-    const values = response.data.map((frame) => ({ text: frame.name }));
-    console.log(values);
-
-    return values;
+    return clusterData.map((entry) => ({
+      text: entry.name,
+    }));
   }
 }
