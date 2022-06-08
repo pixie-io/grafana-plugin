@@ -215,8 +215,11 @@ func (td *PixieDatasource) queryClusters(ctx context.Context, apiToken string) (
 	vizierNames := make([]string, 0)
 
 	for _, vizier := range viziers {
-		vizierIds = append(vizierIds, vizier.ID)
-		vizierNames = append(vizierNames, vizier.Name)
+		// Only show connected clusters
+		if vizier.Status != pxapi.VizierStatusDisconnected {
+			vizierIds = append(vizierIds, vizier.ID)
+			vizierNames = append(vizierNames, vizier.Name)
+		}
 	}
 
 	vizierFrame := data.NewFrame(
