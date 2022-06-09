@@ -46,21 +46,21 @@ const editorStyle = {
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, pxlScript: event });
+    onChange({ ...query, queryType: 'run-script', queryBody: { pxlScript: event } });
     onRunQuery();
   }
 
   onScriptSelect(option: SelectableValue<string>) {
     if (option.value !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: option.value });
+      onChange({ ...query, queryType: 'run-script', queryBody: { pxlScript: option.value } });
       onRunQuery();
     }
   }
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const pxlScript = query?.pxlScript;
+    const pxlScript = query?.queryBody?.pxlScript;
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>

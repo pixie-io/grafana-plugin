@@ -34,13 +34,16 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
+    const pxlScript = query?.queryBody?.pxlScript;
     return {
       ...query,
-      pxlScript: query.pxlScript
-        ? getTemplateSrv().replace(query.pxlScript, {
-            ...scopedVars,
-          })
-        : '',
+      queryBody: {
+        pxlScript: pxlScript
+          ? getTemplateSrv().replace(pxlScript, {
+              ...scopedVars,
+            })
+          : '',
+      },
     };
   }
 
@@ -57,7 +60,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
         type: this.type,
         uid: this.uid,
       },
-      clusterFlag: true,
+      queryType: 'get-clusters',
     };
 
     options = {
