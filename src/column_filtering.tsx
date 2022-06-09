@@ -25,10 +25,12 @@ function splitScript(script: string): string[] {
   return [beforeDisplayCol, afterDisplayCol];
 }
 
+//Adds quotes and a comma to format column name
 function formatColumnName(columnName: string): string {
   return "'" + columnName + "'" + ',';
 }
 
+//returns a script whic can be used to display all columns
 function allColumnScript(columnNames: Array<{ label: string; value: number }>): string {
   let script = '[[';
 
