@@ -81,17 +81,17 @@ func (qp PixieQueryProcessor) queryScript(
 
 	// Create TableMuxer to accept results table.
 	tm := &PixieToGrafanaTableMux{}
-
+	pxlScript := qm.QueryBody["PxlScript"].(string)
 	// Update macros in query text.
-	qm.PxlScript = replaceTimeMacroInQueryText(qm.PxlScript, timeFromMacro,
+	pxlScript = replaceTimeMacroInQueryText(pxlScript, timeFromMacro,
 		query.TimeRange.From)
-	qm.PxlScript = replaceTimeMacroInQueryText(qm.PxlScript, timeToMacro,
+	pxlScript = replaceTimeMacroInQueryText(pxlScript, timeToMacro,
 		query.TimeRange.To)
-	qm.PxlScript = replaceIntervalMacroInQueryText(qm.PxlScript, intervalMacro,
+	pxlScript = replaceIntervalMacroInQueryText(pxlScript, intervalMacro,
 		query.Interval)
 
 	// Execute the PxL script.
-	resultSet, err := vz.ExecuteScript(ctx, qm.PxlScript, tm)
+	resultSet, err := vz.ExecuteScript(ctx, pxlScript, tm)
 	if err != nil && err != io.EOF {
 		log.DefaultLogger.Warn("Can't execute script.")
 		return nil, err

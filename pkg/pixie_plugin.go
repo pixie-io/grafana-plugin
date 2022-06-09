@@ -68,12 +68,6 @@ func (td *PixieDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
-type queryModel struct {
-	// The PxL script passed in by the user.
-	PxlScript   string `json:"pxlScript"`
-	ClusterFlag bool   `json:bool`
-}
-
 func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.Client, error) {
 	var client *pxapi.Client
 	var err error
@@ -90,6 +84,12 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 	return client, nil
 }
 
+type queryModel struct {
+	// The PxL script passed in by the user.
+	QueryType string                 `json:"queryType"`
+	QueryBody map[string]interface{} `json:"queryBody"`
+}
+
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
@@ -98,20 +98,26 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	cloudAddr := config[cloudAddrField]
 
 	var qm queryModel
-	err := json.Unmarshal(query.JSON, &qm)
-	if err != nil {
+	if err := json.Unmarshal(query.JSON, &qm); err != nil {
 		return nil, fmt.Errorf("Error unmarshalling JSON: %v", err)
 	}
 
 	client, err := createClient(ctx, apiToken, cloudAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating Pixie Client: %v", err)
+	}
+
 	qp := PixieQueryProcessor{
 		client: client,
 	}
 
-	if qm.ClusterFlag {
-		return qp.queryClusters(ctx, apiToken)
-	} else {
+	switch qm.QueryType {
+	case "run-script":
 		return qp.queryScript(ctx, qm, query, clusterID)
+	case "get-clusters":
+		return qp.queryClusters(ctx, apiToken)
+	default:
+		return nil, fmt.Errorf("Unknown query type: %v", qm.QueryType)
 	}
 }
 
