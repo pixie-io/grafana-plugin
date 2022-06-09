@@ -27,7 +27,7 @@ import 'prism-themes/themes/prism-vsc-dark-plus.css';
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
-import { podMetrics, makeFilteringScript } from 'column_filtering';
+import { makeFilteringScript } from 'column_filtering';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -52,14 +52,20 @@ export class QueryEditor extends PureComponent<Props> {
     if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
       const script = option.value;
-      onChange({ ...query, pxlScript: script.script, scriptName: script.name, isTabular: script.isTabular });
+      onChange({
+        ...query,
+        pxlScript: script.script,
+        scriptName: script.name,
+        isTabular: script.isTabular,
+        columnOptions: script.columnNames,
+      });
       onRunQuery();
     }
   }
 
-  filterPodColumns(columns: Array<SelectableValue<{}>>) {
-    if (columns !== undefined) {
-      const script = makeFilteringScript(columns);
+  filterColumns(chosenOptions: Array<SelectableValue<{}>>) {
+    if (chosenOptions !== undefined) {
+      const script = makeFilteringScript(chosenOptions, this.props.query.pxlScript, this.props.query.columnOptions);
       const { onChange, query, onRunQuery } = this.props;
       onChange({ ...query, pxlScript: script });
       onRunQuery();
@@ -82,9 +88,9 @@ export class QueryEditor extends PureComponent<Props> {
 
           {query.isTabular === true ? (
             <MultiSelect
-              placeholder="Filter Columns"
-              options={podMetrics.columnNames}
-              onChange={this.filterPodColumns.bind(this)}
+              placeholder="Select columns to filter"
+              options={query.columnOptions}
+              onChange={this.filterColumns.bind(this)}
               width={32}
               inputId="multi-select-ops"
             />

@@ -25,6 +25,7 @@ export interface PixieDataQuery extends DataQuery {
   pxlScript: string;
   scriptName: string;
   isTabular: boolean;
+  columnOptions: Array<{ label: string; value: number }>;
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {

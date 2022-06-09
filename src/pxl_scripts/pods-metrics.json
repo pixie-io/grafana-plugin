@@ -10,7 +10,5 @@
         { "label": "container_count", "value": 4 },
         { "label": "node", "value": 5 },
         { "label": "start_time", "value": 6 },
-        { "label": "status", "value": 7 }],
-    "columnQueries": ["'pod',", "'cpu_usage',", "'total_disk_read_throughput',", "'total_disk_write_throughput',", "'container_count',", "'node',", "'start_time',", "'status',"],
-    "allColumnsScript": "px.display(output[['pod','cpu_usage','total_disk_read_throughput','total_disk_write_throughput','container_count','node','start_time','status',]])"
+        { "label": "status", "value": 7 }]
 }

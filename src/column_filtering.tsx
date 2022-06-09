@@ -17,26 +17,46 @@
  */
 import { SelectableValue } from '@grafana/data';
 
-export const podMetrics = require('pxl_scripts/pods-metrics.json');
+//Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
+function splitScript(script: string): string[] {
+  const beforeDisplayCol = script.slice(0, script.indexOf('[['));
+  const afterDisplayCol = script.slice(script.indexOf(']]'));
 
-//locates the index of the part of the script which deals with displaying the columns
-const podGetDataScript = podMetrics.script.substr(0, podMetrics.script.indexOf('px.display'));
+  return [beforeDisplayCol, afterDisplayCol];
+}
 
-export function makeFilteringScript(columns: SelectableValue<{}>): string {
-  //Contains the part of the full script which contains all columns
-  let filteredColumnScript = podMetrics.allColumnsScript;
+function formatColumnName(columnName: string): string {
+  return "'" + columnName + "'" + ',';
+}
+
+function allColumnScript(columnNames: Array<{ label: string; value: number }>): string {
+  let script = '[[';
+
+  for (let i = 0; i < columnNames.length; i++) {
+    script += formatColumnName(columnNames[i].label);
+  }
+  return script;
+}
+
+export function makeFilteringScript(
+  chosenOptions: SelectableValue<{}>,
+  script: string,
+  columnNames: Array<{ label: string; value: number }>
+): string {
+  //Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
+  const [beforeDisplayCol, afterDisplayCol] = splitScript(script);
+  let filteredColumnScript = allColumnScript(columnNames);
 
   //If a column is chosen to be filtered by the user, filteredColumnScript will be updated
-  if (columns.length > 0) {
+  if (chosenOptions.length > 0) {
     //Dynamically builds the script by concatenating each option that was chosen
-    filteredColumnScript = `px.display(output[[`;
+    filteredColumnScript = `[[`;
 
-    for (let i = 0; i < columns.length; i++) {
-      filteredColumnScript += podMetrics.columnQueries[columns[i].value];
+    for (let i = 0; i < chosenOptions.length; i++) {
+      filteredColumnScript += formatColumnName(chosenOptions[i].label);
     }
-    filteredColumnScript += `]])`;
   }
 
-  //returns a string that concatenates a part of script dealing with collecting data with a new string of updated columns to display
-  return podGetDataScript + filteredColumnScript;
+  //returns a string that concatenates a part of script before displaying columns, the part actually displaying columns and anything after
+  return beforeDisplayCol + filteredColumnScript + afterDisplayCol;
 }
