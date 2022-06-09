@@ -29,6 +29,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     let timeVars = [
       ['$__from', '__time_from'],
       ['$__to', '__time_to'],
+      ['$__interval', '__interval']
     ];
 
     timeVars.forEach((replace) => {
