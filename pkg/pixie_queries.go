@@ -152,10 +152,5 @@ func (qp PixieQueryProcessor) queryClusters(ctx context.Context, apiToken string
 
 	response.Frames = append(response.Frames, vizierFrame)
 
-	backend.Logger.Debug(fmt.Sprintf("number of viziers: $d", len(viziers)))
-	backend.Logger.Debug(fmt.Sprintf("id: $s, name: $s, status: $s", viziers[0].ID, viziers[0].Name, viziers[0].Status))
-
-	backend.Logger.Debug(vizierFrame.StringTable(10, 10))
-
 	return response, nil
 }
