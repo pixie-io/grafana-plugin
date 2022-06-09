@@ -26,6 +26,16 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
+    let timeVars = [
+      ['$__from', '__time_from'],
+      ['$__to', '__time_to'],
+      ['$__interval', '__interval']
+    ];
+
+    timeVars.forEach((replace) => {
+      query.pxlScript = query.pxlScript.replaceAll(replace[0], replace[1]);
+    });
+
     return {
       ...query,
       pxlScript: query.pxlScript
