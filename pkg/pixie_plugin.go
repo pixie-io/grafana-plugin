@@ -84,10 +84,14 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 	return client, nil
 }
 
+type queryBody struct {
+	PxlScript string
+}
+
 type queryModel struct {
 	// The PxL script passed in by the user.
-	QueryType string                 `json:"queryType"`
-	QueryBody map[string]interface{} `json:"queryBody"`
+	QueryType string    `json:"queryType"`
+	QueryBody queryBody `json:"queryBody"`
 }
 
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
@@ -113,7 +117,7 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 
 	switch qm.QueryType {
 	case "run-script":
-		return qp.queryScript(ctx, qm, query, clusterID)
+		return qp.queryScript(ctx, qm.QueryBody, query, clusterID)
 	case "get-clusters":
 		return qp.queryClusters(ctx, apiToken)
 	default:

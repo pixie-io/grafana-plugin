@@ -66,7 +66,7 @@ type PixieQueryProcessor struct {
 
 func (qp PixieQueryProcessor) queryScript(
 	ctx context.Context,
-	qm queryModel,
+	qm queryBody,
 	query backend.DataQuery,
 	clusterID string,
 ) (*backend.DataResponse, error) {
@@ -81,7 +81,7 @@ func (qp PixieQueryProcessor) queryScript(
 
 	// Create TableMuxer to accept results table.
 	tm := &PixieToGrafanaTableMux{}
-	pxlScript := qm.QueryBody["PxlScript"].(string)
+	pxlScript := qm.PxlScript
 	// Update macros in query text.
 	pxlScript = replaceTimeMacroInQueryText(pxlScript, timeFromMacro,
 		query.TimeRange.From)
