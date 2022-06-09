@@ -24,10 +24,11 @@ import { scriptOptions } from 'pxl_scripts';
 export interface PixieDataQuery extends DataQuery {
   pxlScript: string;
   scriptName: string;
+  isTabular: boolean;
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {
-  pxlScript: scriptOptions[0].value,
+  pxlScript: scriptOptions[0].value?.script,
 };
 
 export interface PixieDataSourceOptions extends DataSourceJsonData {}

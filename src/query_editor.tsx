@@ -25,9 +25,9 @@ import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
 import { DataSource } from './datasource';
-import { scriptOptions } from 'pxl_scripts';
+import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
-import { makeFilteringScript, podColumnOptions, tabularScripts } from 'column_filtering';
+import { podMetrics, makeFilteringScript } from 'column_filtering';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -48,19 +48,20 @@ export class QueryEditor extends PureComponent<Props> {
     onRunQuery();
   }
 
-  onScriptSelect(option: SelectableValue<string>) {
+  onScriptSelect(option: SelectableValue<Script>) {
     if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: option.value, scriptName: option.label });
+      const script = option.value;
+      onChange({ ...query, pxlScript: script.script, scriptName: script.name, isTabular: script.isTabular });
       onRunQuery();
     }
   }
 
-  filterPodColumns(obj: any[]) {
-    if (obj) {
-      const constFilteredScript = makeFilteringScript(obj);
+  filterPodColumns(columns: Array<SelectableValue<{}>>) {
+    if (columns !== undefined) {
+      const script = makeFilteringScript(columns);
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: constFilteredScript });
+      onChange({ ...query, pxlScript: script });
       onRunQuery();
     }
   }
@@ -79,11 +80,11 @@ export class QueryEditor extends PureComponent<Props> {
             defaultValue={scriptOptions[0]}
           />
 
-          {tabularScripts.includes(query.scriptName) ? (
+          {query.isTabular === true ? (
             <MultiSelect
               placeholder="Filter Columns"
+              options={podMetrics.columnNames}
               onChange={this.filterPodColumns.bind(this)}
-              options={podColumnOptions}
               width={32}
               inputId="multi-select-ops"
             />
