@@ -19,14 +19,28 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
+// Types of available queries to the backend
+export type QueryType = 'run-script' | 'get-clusters';
+
+// Describes variable query to be sent to the backend.
+export interface PixieVariableQuery {
+  queryType: QueryType;
+}
+
 // PixieDataQuery is the interface representing a query in Pixie.
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
-  pxlScript: string;
+  queryType: QueryType;
+  queryBody?: {
+    pxlScript?: string;
+  };
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {
-  pxlScript: scriptOptions[0].value,
+  queryType: 'run-script' as const,
+  queryBody: {
+    pxlScript: scriptOptions[0].value,
+  },
 };
 
 export interface PixieDataSourceOptions extends DataSourceJsonData {}
