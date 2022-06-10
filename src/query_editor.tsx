@@ -46,14 +46,22 @@ const editorStyle = {
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, queryType: 'run-script', queryBody: { pxlScript: event } });
+    onChange({
+      ...query,
+      queryType: 'run-script' as const,
+      queryBody: { pxlScript: event },
+    });
     onRunQuery();
   }
 
   onScriptSelect(option: SelectableValue<string>) {
     if (option.value !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryType: 'run-script', queryBody: { pxlScript: option.value } });
+      onChange({
+        ...query,
+        queryType: 'run-script' as const,
+        queryBody: { pxlScript: option.value },
+      });
       onRunQuery();
     }
   }
@@ -71,7 +79,7 @@ export class QueryEditor extends PureComponent<Props> {
           defaultValue={scriptOptions[0]}
         />
         <Editor
-          value={pxlScript === undefined ? '' : pxlScript}
+          value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
           highlight={(code) => {
             if (code !== undefined) {

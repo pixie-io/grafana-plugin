@@ -16,9 +16,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataFrame, DataSourceInstanceSettings, ScopedVars, TimeRange, toDataFrame } from '@grafana/data';
+import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame } from '@grafana/data';
 import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery } from './types';
+import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
 
 interface ClusterMeta {
   id: string;
@@ -26,15 +26,15 @@ interface ClusterMeta {
 }
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
-  backendServ?: BackendSrv;
+  backendSrv: BackendSrv;
 
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
     super(instanceSettings);
-    this.backendServ = getBackendSrv();
+    this.backendSrv = getBackendSrv();
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
-    const pxlScript = query?.queryBody?.pxlScript;
+    const pxlScript = query.queryBody?.pxlScript ?? '';
     return {
       ...query,
       queryBody: {
@@ -47,20 +47,16 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     };
   }
 
-  async fetchMetricNames(options: any): Promise<FetchResponse | void> {
-    let refId = 'tempvar';
-    if (options && options.variable && options.variable.name) {
-      refId = options.variable.name;
-    }
+  async fetchMetricNames(query: PixieVariableQuery, options: any): Promise<FetchResponse | void> {
+    const refId = options?.variable?.name ?? 'tempvar';
 
-    const range = options?.range as TimeRange;
     const interpolatedQuery = {
-      refId: refId,
+      refId,
       datasource: {
         type: this.type,
         uid: this.uid,
       },
-      queryType: 'get-clusters',
+      queryType: query.queryType,
     };
 
     options = {
@@ -68,18 +64,12 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       url: '/api/ds/query',
       method: 'POST',
       data: {
-        from: range?.from?.valueOf()?.toString(),
-        to: range?.to?.valueOf()?.toString(),
         queries: [interpolatedQuery],
       },
     };
 
-    const response = this.backendServ?.fetch<any>(options);
-    if (response) {
-      return response.toPromise();
-    } else {
-      return Promise.resolve();
-    }
+    const response = this.backendSrv.fetch<any>(options);
+    return response ? response.toPromise() : Promise.resolve();
   }
 
   /**
@@ -92,27 +82,28 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
    * @returns list of objects with fields names from df
    */
   zipGrafanaDataFrame(df: DataFrame) {
-    const zippedData = new Array(df.length);
+    const zipped = new Array(df.length).fill(null);
 
-    for (let i = 0; i < df.length; i++) {
-      zippedData[i] = {};
+    for (const field of df.fields) {
+      for (let i = 0; i < field.values.length; i++) {
+        zipped[i] ??= {};
+        zipped[i][field.name] = field.values.get(i);
+      }
     }
 
-    df.fields.forEach((field) => {
-      field.values.toArray().forEach((elem, i) => {
-        zippedData[i][field.name] = elem;
-      });
-    });
-
-    console.log(zippedData);
-    return zippedData;
+    return zipped;
   }
 
-  async metricFindQuery(query: string, options?: any) {
-    // Retrieve DataQueryResponse based on query.
-    const variableName = options.variable.name;
-    const response = await this.fetchMetricNames(options);
-    const vizierFrame = toDataFrame(response!.data.results[variableName].frames[0]);
+  async metricFindQuery(query: PixieVariableQuery, options?: any) {
+    const variableName: string = options.variable.name;
+    //Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
+    query = query || { queryType: 'get-clusters' as const };
+
+    // Fetch variables from the backend
+    const response = await this.fetchMetricNames(query, options);
+    //Convert the response to a DataFrame
+    const vizierFrame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
+    //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
     const clusterData: ClusterMeta[] = this.zipGrafanaDataFrame(vizierFrame);
 
     return clusterData.map((entry) => ({

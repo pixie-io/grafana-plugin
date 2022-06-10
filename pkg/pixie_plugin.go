@@ -68,6 +68,7 @@ func (td *PixieDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
+// Creates Pixie API client using API key and cloud Address
 func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.Client, error) {
 	var client *pxapi.Client
 	var err error
@@ -84,16 +85,27 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 	return client, nil
 }
 
+//Specifies available query types
+type QueryType string
+
+const (
+	RunScript   QueryType = "run-script"
+	GetClusters QueryType = "get-clusters"
+)
+
 type queryBody struct {
+	//The body of a pxl script
 	PxlScript string
 }
 
 type queryModel struct {
-	// The PxL script passed in by the user.
-	QueryType string    `json:"queryType"`
+	//QueryType specifies which API call to call.
+	QueryType QueryType `json:"queryType"`
+	//QueryBody contains any additional information needed to make the API call
 	QueryBody queryBody `json:"queryBody"`
 }
 
+//Handle an incoming query
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
@@ -116,9 +128,9 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	}
 
 	switch qm.QueryType {
-	case "run-script":
+	case RunScript:
 		return qp.queryScript(ctx, qm.QueryBody, query, clusterID)
-	case "get-clusters":
+	case GetClusters:
 		return qp.queryClusters(ctx, apiToken)
 	default:
 		return nil, fmt.Errorf("Unknown query type: %v", qm.QueryType)

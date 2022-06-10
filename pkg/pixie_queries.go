@@ -60,10 +60,12 @@ func replaceIntervalMacroInQueryText(queryText string, grafanaMacro GrafanaMacro
 	return strings.ReplaceAll(queryText, string(grafanaMacro), intervalStr)
 }
 
+// PixieQueryProcessor is a type which handles different PixieAPI calls and returns a Grafana response
 type PixieQueryProcessor struct {
 	client *pxapi.Client
 }
 
+// queryScript sends a request to Pixie with pxlScript and returns DataResponse about the current cluster
 func (qp PixieQueryProcessor) queryScript(
 	ctx context.Context,
 	qm queryBody,
@@ -125,6 +127,7 @@ func (qp PixieQueryProcessor) queryScript(
 	return response, nil
 }
 
+// queryClusters sends a request to Pixie, and returns a DataResponse with healthy clusters
 func (qp PixieQueryProcessor) queryClusters(ctx context.Context, apiToken string) (*backend.DataResponse, error) {
 	response := &backend.DataResponse{}
 	viziers, err := qp.client.ListViziers(ctx)

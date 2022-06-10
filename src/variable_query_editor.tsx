@@ -19,20 +19,21 @@
 import { SelectableValue } from '@grafana/data';
 import { Select } from '@grafana/ui';
 import React from 'react';
+import { PixieVariableQuery, QueryType } from 'types';
 
+//Specifies what properties the VariableQueryEditor receives in constructor
 interface VariableQueryProps {
-  query: string;
-  onChange: (query: string, definition: string) => void;
+  onChange: (query: PixieVariableQuery, definition: string) => void;
 }
 
-export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, query }) => {
-  const onClusterSelect = (option: SelectableValue<string>) => {
+export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) => {
+  const onClusterSelect = (option: SelectableValue<QueryType>) => {
     if (option.value !== undefined && option.label !== undefined) {
-      onChange(option.value, option.label);
+      onChange({ queryType: option.value }, option.label);
     }
   };
 
-  const valueOptions = [{ label: 'Clusters', value: 'get-clusters' }];
+  const valueOptions: Array<SelectableValue<QueryType>> = [{ label: 'Clusters', value: 'get-clusters' as const }];
 
   return (
     <>
