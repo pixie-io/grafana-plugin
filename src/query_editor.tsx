@@ -44,12 +44,13 @@ const editorStyle = {
 
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
-    const { onChange, query } = this.props;
+    const { onChange, query, onRunQuery } = this.props;
     onChange({
       ...query,
       queryType: 'run-script' as const,
       queryBody: { pxlScript: event },
     });
+    onRunQuery();
   }
 
   onScriptSelect(option: SelectableValue<Script>) {
