@@ -85,7 +85,7 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 	return client, nil
 }
 
-//Specifies available query types
+// Specifies available query types
 type QueryType string
 
 const (
@@ -94,18 +94,18 @@ const (
 )
 
 type queryBody struct {
-	//The body of a pxl script
+	// The body of a pxl script
 	PxlScript string
 }
 
 type queryModel struct {
-	//QueryType specifies which API call to call.
+	// QueryType specifies which API call to call.
 	QueryType QueryType `json:"queryType"`
-	//QueryBody contains any additional information needed to make the API call
+	// QueryBody contains any additional information needed to make the API call
 	QueryBody queryBody `json:"queryBody"`
 }
 
-//Handle an incoming query
+// Handle an incoming query
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
