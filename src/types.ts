@@ -31,6 +31,7 @@ export interface PixieVariableQuery {
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
   queryType: QueryType;
+  clusterId?: string;
   queryBody?: {
     pxlScript?: string;
   };

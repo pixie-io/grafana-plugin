@@ -101,6 +101,7 @@ type queryBody struct {
 type queryModel struct {
 	// QueryType specifies which API call to call.
 	QueryType QueryType `json:"queryType"`
+	ClusterId string    `json:"clusterId"`
 	// QueryBody contains any additional information needed to make the API call
 	QueryBody queryBody `json:"queryBody"`
 }
@@ -125,6 +126,11 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 
 	qp := PixieQueryProcessor{
 		client: client,
+	}
+
+	// if cluster id is not set, fall back to using id from config
+	if len(qm.ClusterId) != 0 {
+		clusterID = qm.ClusterId
 	}
 
 	switch qm.QueryType {

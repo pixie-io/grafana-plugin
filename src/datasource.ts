@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame } from '@grafana/data';
-import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
+import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame, VariableModel } from '@grafana/data';
+import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
 import { getColumnsScript } from './column_filtering';
 
@@ -58,8 +58,14 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       );
     }
 
+    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
+
+    // find cluster variable and convert it to any since the variable value field is not exposed
+    const pixieClusterId = dashboardVariables.find((variable) => variable.name === 'pixieCluster') as any;
+
     return {
       ...query,
+      clusterId: pixieClusterId?.current?.value ?? '',
       queryBody: {
         ...query.queryBody,
         pxlScript: pxlScript
@@ -132,6 +138,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
 
     return clusterData.map((entry) => ({
       text: entry.name,
+      value: entry.id,
     }));
   }
 }
