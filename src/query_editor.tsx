@@ -19,7 +19,7 @@
 import defaults from 'lodash/defaults';
 
 import React, { PureComponent } from 'react';
-import { Select } from '@grafana/ui';
+import { Select, Button } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 
 import Editor from 'react-simple-code-editor';
@@ -45,13 +45,12 @@ const editorStyle = {
 
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
-    const { onChange, query, onRunQuery } = this.props;
+    const { onChange, query } = this.props;
     onChange({
       ...query,
       queryType: 'run-script' as const,
       queryBody: { pxlScript: event },
     });
-    onRunQuery();
   }
 
   onScriptSelect(option: SelectableValue<string>) {
@@ -72,12 +71,23 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <Select
-          options={scriptOptions}
-          width={32}
-          onChange={this.onScriptSelect.bind(this)}
-          defaultValue={scriptOptions[0]}
-        />
+        <div className="gf-form">
+          <Select
+            options={scriptOptions}
+            width={32}
+            onChange={this.onScriptSelect.bind(this)}
+            defaultValue={scriptOptions[0]}
+          />
+          <Button
+            style={{ marginLeft: '10px' }}
+            onClick={() => {
+              this.props.onRunQuery();
+            }}
+          >
+            Run Script
+          </Button>
+        </div>
+
         <Editor
           value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
