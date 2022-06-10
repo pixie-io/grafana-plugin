@@ -52,12 +52,13 @@ export class QueryEditor extends PureComponent<Props> {
     if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
       const script = option.value;
+
       onChange({
         ...query,
         pxlScript: script.script,
         scriptName: script.name,
         isTabular: script.isTabular,
-        columnOptions: script.columnNames,
+        columnOptions: option.columnOptions,
       });
       onRunQuery();
     }
@@ -86,13 +87,13 @@ export class QueryEditor extends PureComponent<Props> {
             defaultValue={scriptOptions[0]}
           />
 
-          {query.isTabular === true ? (
+          {query.isTabular ? (
             <MultiSelect
               placeholder="Select columns to filter"
               options={query.columnOptions}
               onChange={this.filterColumns.bind(this)}
               width={32}
-              inputId="multi-select-ops"
+              inputId="column-selection"
             />
           ) : (
             <></>
