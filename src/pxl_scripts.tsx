@@ -29,7 +29,7 @@ export interface Script {
   description: string;
   script: string;
   isTabular: boolean;
-  columnNames: Array<{ label: string; value: number }>;
+  columnNames: string[];
 }
 
 // Load predefined scripts
@@ -41,5 +41,5 @@ export const scriptOptions: Array<SelectableValue<Script>> = scriptsRaw.map((scr
   description: scriptObject.description,
   value: scriptObject,
   isTabular: scriptObject.isTabular,
-  columnOptions: scriptObject.columnNames,
+  columnOptions: (scriptObject.columnNames || []).map((name, index) => ({ label: name, value: index })),
 }));

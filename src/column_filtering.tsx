@@ -19,8 +19,8 @@ import { SelectableValue } from '@grafana/data';
 
 //Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
 function splitScript(script: string): string[] {
-  const beforeDisplayCol = script.slice(0, script.indexOf('[['));
-  const afterDisplayCol = script.slice(script.indexOf(']]'));
+  const beforeDisplayCol = script.slice(0, script.lastIndexOf('[['));
+  const afterDisplayCol = script.slice(script.lastIndexOf(']]'));
 
   return [beforeDisplayCol, afterDisplayCol];
 }
@@ -30,8 +30,8 @@ function formatColumnName(columnName: string): string {
   return "'" + columnName + "'" + ',';
 }
 
-//returns a script whic can be used to display all columns
-function allColumnScript(columnNames: Array<{ label: string; value: number }>): string {
+//Returns a script which can be used to display all columns
+function getAllColumnScript(columnNames: Array<{ label: string; value: number }>): string {
   let script = '[[';
 
   for (let i = 0; i < columnNames.length; i++) {
@@ -47,7 +47,7 @@ export function makeFilteringScript(
 ): string {
   //Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
   const [beforeDisplayCol, afterDisplayCol] = splitScript(script);
-  let filteredColumnScript = allColumnScript(columnNames);
+  let filteredColumnScript = getAllColumnScript(columnNames);
 
   //If a column is chosen to be filtered by the user, filteredColumnScript will be updated
   if (chosenOptions.length > 0) {
