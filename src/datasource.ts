@@ -19,6 +19,7 @@
 import { DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery } from './types';
+import { getColumnsScript } from './column_filtering';
 
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
@@ -32,9 +33,19 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       ['$__interval', '__interval'],
     ];
 
-    timeVars.forEach((replace) => {
-      query.pxlScript = query.pxlScript.replaceAll(replace[0], replace[1]);
-    });
+    //Replace Grafana's time global variables from the script with Pixie's time macros
+    for (const [changeFrom, changeTo] of timeVars) {
+      query.pxlScript = query.pxlScript.replaceAll(changeFrom, changeTo);
+    }
+
+    let columnsVar = '$__columns';
+    //Replace $__columns with columns selected to filter
+    if (query.isTabular) {
+      query.pxlScript = query.pxlScript.replace(
+        columnsVar,
+        getColumnsScript(query.selectedColumns, query.columnOptions)
+      );
+    }
 
     return {
       ...query,
