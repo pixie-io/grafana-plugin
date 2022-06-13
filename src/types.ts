@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
 // PixieDataQuery is the interface representing a query in Pixie.
@@ -26,6 +26,7 @@ export interface PixieDataQuery extends DataQuery {
   scriptName: string;
   isTabular: boolean;
   columnOptions: Array<{ label: string; value: number }>;
+  selectedColumns: SelectableValue<{}>;
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {

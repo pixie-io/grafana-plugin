@@ -27,7 +27,6 @@ import 'prism-themes/themes/prism-vsc-dark-plus.css';
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
-import { makeFilteringScript } from 'column_filtering';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -51,7 +50,7 @@ export class QueryEditor extends PureComponent<Props> {
   onScriptSelect(option: SelectableValue<Script>) {
     if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      const script = option.value;
+      const script: Script = option.value;
 
       onChange({
         ...query,
@@ -64,11 +63,10 @@ export class QueryEditor extends PureComponent<Props> {
     }
   }
 
-  filterColumns(chosenOptions: Array<SelectableValue<{}>>) {
+  onFilterSelect(chosenOptions: Array<SelectableValue<{}>>) {
     if (chosenOptions !== undefined) {
-      const script = makeFilteringScript(chosenOptions, this.props.query.pxlScript, this.props.query.columnOptions);
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: script });
+      onChange({ ...query, pxlScript: this.props.query.pxlScript, selectedColumns: chosenOptions });
       onRunQuery();
     }
   }
@@ -91,7 +89,7 @@ export class QueryEditor extends PureComponent<Props> {
             <MultiSelect
               placeholder="Select columns to filter"
               options={query.columnOptions}
-              onChange={this.filterColumns.bind(this)}
+              onChange={this.onFilterSelect.bind(this)}
               width={32}
               inputId="column-selection"
             />

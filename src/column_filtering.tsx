@@ -17,48 +17,17 @@
  */
 import { SelectableValue } from '@grafana/data';
 
-//Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
-function splitScript(script: string): string[] {
-  const beforeDisplayCol = script.slice(0, script.lastIndexOf('[['));
-  const afterDisplayCol = script.slice(script.lastIndexOf(']]'));
-
-  return [beforeDisplayCol, afterDisplayCol];
-}
-
-//Adds quotes and a comma to format column name
-function formatColumnName(columnName: string): string {
-  return "'" + columnName + "'" + ',';
-}
-
-//Returns a script which can be used to display all columns
-function getAllColumnScript(columnNames: Array<{ label: string; value: number }>): string {
-  let script = '[[';
-
-  for (let i = 0; i < columnNames.length; i++) {
-    script += formatColumnName(columnNames[i].label);
-  }
-  return script;
-}
-
-export function makeFilteringScript(
+export function getColumnsScript(
   chosenOptions: SelectableValue<{}>,
-  script: string,
-  columnNames: Array<{ label: string; value: number }>
+  allColumnOptions: Array<{ label: string; value: number }>
 ): string {
-  //Splits the script into two parts: 1. Script up till display columns, 2. Script after displaying columns
-  const [beforeDisplayCol, afterDisplayCol] = splitScript(script);
-  let filteredColumnScript = getAllColumnScript(columnNames);
+  //Setting script default to all the columns in the script
+  let script = allColumnOptions.map((columnName) => `'${columnName.label}'`).join();
 
-  //If a column is chosen to be filtered by the user, filteredColumnScript will be updated
-  if (chosenOptions.length > 0) {
-    //Dynamically builds the script by concatenating each option that was chosen
-    filteredColumnScript = `[[`;
-
-    for (let i = 0; i < chosenOptions.length; i++) {
-      filteredColumnScript += formatColumnName(chosenOptions[i].label);
-    }
+  //Updating the script if the user selected columns to filter
+  if (chosenOptions && chosenOptions.length > 0) {
+    script = chosenOptions.map((columnName: { label: string; value: number }) => `'${columnName.label}'`).join();
   }
 
-  //returns a string that concatenates a part of script before displaying columns, the part actually displaying columns and anything after
-  return beforeDisplayCol + filteredColumnScript + afterDisplayCol;
+  return script;
 }
