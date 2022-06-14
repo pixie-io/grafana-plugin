@@ -56,7 +56,7 @@ export class QueryEditor extends PureComponent<Props> {
         ...query,
         pxlScript: script.script,
         scriptName: script.name,
-        isTabular: script.isTabular,
+        isTabular: script.isTabular || false,
         columnOptions: option.columnOptions,
       });
       onRunQuery();

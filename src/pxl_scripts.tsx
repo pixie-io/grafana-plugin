@@ -28,7 +28,7 @@ export interface Script {
   name: string;
   description: string;
   script: string;
-  isTabular: boolean;
+  isTabular?: boolean;
   columnNames?: string[];
 }
 

@@ -21,10 +21,10 @@ export function getColumnsScript(
   chosenOptions: SelectableValue<{}>,
   allColumnOptions: Array<{ label: string; value: number }>
 ): string {
-  //Setting script default to all the columns in the script
+  // Setting script default to all the columns in the script
   let script = allColumnOptions.map((columnName) => `'${columnName.label}'`).join();
 
-  //Updating the script if the user selected columns to filter
+  // Updating the script if the user selected columns to filter
   if (chosenOptions && chosenOptions.length > 0) {
     script = chosenOptions.map((columnName: { label: string; value: number }) => `'${columnName.label}'`).join();
   }

@@ -21,25 +21,26 @@ import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery } from './types';
 import { getColumnsScript } from './column_filtering';
 
+const timeVars = [
+  ['$__from', '__time_from'],
+  ['$__to', '__time_to'],
+  ['$__interval', '__interval'],
+];
+
+const columnsVar = '$__columns';
+
 export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
     super(instanceSettings);
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
-    let timeVars = [
-      ['$__from', '__time_from'],
-      ['$__to', '__time_to'],
-      ['$__interval', '__interval'],
-    ];
-
-    //Replace Grafana's time global variables from the script with Pixie's time macros
+    // Replace Grafana's time global variables from the script with Pixie's time macros
     for (const [changeFrom, changeTo] of timeVars) {
       query.pxlScript = query.pxlScript.replaceAll(changeFrom, changeTo);
     }
 
-    let columnsVar = '$__columns';
-    //Replace $__columns with columns selected to filter
+    // Replace $__columns with columns selected to filter
     if (query.isTabular) {
       query.pxlScript = query.pxlScript.replace(
         columnsVar,
