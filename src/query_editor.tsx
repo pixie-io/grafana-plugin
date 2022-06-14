@@ -24,7 +24,7 @@ import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
-import './query_editor.css';
+import './styles.css';
 
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from 'pxl_scripts';
