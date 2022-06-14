@@ -24,6 +24,8 @@ import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
+import './query_editor.css';
+
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
@@ -70,11 +72,7 @@ export class QueryEditor extends PureComponent<Props> {
   onFilterSelect(chosenOptions: Array<SelectableValue<{}>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-
-      console.log('chosenOptions: ', chosenOptions);
       onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColumns: chosenOptions } });
-
-      console.log('On change query: ', query);
       onRunQuery();
     }
   }
@@ -117,15 +115,20 @@ export class QueryEditor extends PureComponent<Props> {
         <Editor
           value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
+          textareaId="code-area"
           highlight={(code) => {
             if (code !== undefined) {
-              return highlight(code, languages.python, 'python');
+              return highlight(code, languages.python, 'python')
+                .split('\n')
+                .map((line, i) => `<span class='editor-line-number'>${i + 1}</span>${line}`)
+                .join('\n');
             } else {
               return '';
             }
           }}
           padding={10}
           style={editorStyle}
+          className="code-editor"
         />
       </div>
     );

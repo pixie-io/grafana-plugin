@@ -52,14 +52,10 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
 
     // Replace $__columns with columns selected to filter
     if (query.queryMeta && query.queryMeta.isTabular) {
-      console.log('Columns to display: ', query.queryMeta.selectedColumns);
-
       pxlScript = pxlScript.replace(
         columnsVar,
         getColumnsScript(query.queryMeta.selectedColumns!, query.queryMeta.columnOptions!)
       );
-
-      console.log('After replacing: ', pxlScript);
     }
 
     return {
