@@ -3,18 +3,6 @@
     margin-right: 5px;
 }
 
-.no-outline {
-    outline: none;
-}
-
-.no-outline:focus {
-    outline: none; 
-}
-
-.no-outline::selection {
-    outline: none;
-}
-
 .code-editor {
     counter-reset: line;
   }
