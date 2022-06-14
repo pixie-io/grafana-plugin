@@ -68,11 +68,12 @@ type PixieQueryProcessor struct {
 // queryScript sends a request to Pixie with pxlScript and returns DataResponse about the current cluster
 func (qp PixieQueryProcessor) queryScript(
 	ctx context.Context,
-	qm queryBody,
+	pxlScript string,
 	query backend.DataQuery,
 	clusterID string,
 ) (*backend.DataResponse, error) {
 
+	backend.Logger.Error(fmt.Sprintf("clusterID: %+v", clusterID))
 	vz, err := qp.client.NewVizierClient(ctx, clusterID)
 	if err != nil {
 		log.DefaultLogger.Error(fmt.Sprintf("Unable to create Vizier Client: %+v", err))
@@ -83,7 +84,6 @@ func (qp PixieQueryProcessor) queryScript(
 
 	// Create TableMuxer to accept results table.
 	tm := &PixieToGrafanaTableMux{}
-	pxlScript := qm.PxlScript
 	// Update macros in query text.
 	pxlScript = replaceTimeMacroInQueryText(pxlScript, timeFromMacro,
 		query.TimeRange.From)
@@ -128,7 +128,7 @@ func (qp PixieQueryProcessor) queryScript(
 }
 
 // queryClusters sends a request to Pixie, and returns a DataResponse with healthy clusters
-func (qp PixieQueryProcessor) queryClusters(ctx context.Context, apiToken string) (*backend.DataResponse, error) {
+func (qp PixieQueryProcessor) queryClusters(ctx context.Context) (*backend.DataResponse, error) {
 	response := &backend.DataResponse{}
 	viziers, err := qp.client.ListViziers(ctx)
 

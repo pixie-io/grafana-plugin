@@ -90,6 +90,7 @@ type QueryType string
 const (
 	RunScript   QueryType = "run-script"
 	GetClusters QueryType = "get-clusters"
+	GetPods     QueryType = "get-pods"
 )
 
 type queryBody struct {
@@ -134,9 +135,13 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 
 	switch qm.QueryType {
 	case RunScript:
-		return qp.queryScript(ctx, qm.QueryBody, query, clusterID)
+		return qp.queryScript(ctx, qm.QueryBody.PxlScript, query, clusterID)
 	case GetClusters:
-		return qp.queryClusters(ctx, apiToken)
+		return qp.queryClusters(ctx)
+	case GetPods:
+		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.pod = df.ctx['pod_name']\ndf = df[['pod']]\npx.display(df)"
+		backend.Logger.Debug(podPxlScript)
+		return qp.queryScript(ctx, podPxlScript, query, clusterID)
 	default:
 		return nil, fmt.Errorf("unknown query type: %v", qm.QueryType)
 	}
