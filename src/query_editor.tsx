@@ -18,7 +18,7 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect } from '@grafana/ui';
+import { Select, MultiSelect, Button } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
@@ -42,22 +42,26 @@ const editorStyle = {
 
 export class QueryEditor extends PureComponent<Props> {
   onPxlScriptChange(event: string) {
-    const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, pxlScript: event });
-    onRunQuery();
+    const { onChange, query } = this.props;
+    onChange({
+      ...query,
+      queryType: 'run-script' as const,
+      queryBody: { pxlScript: event },
+    });
   }
 
   onScriptSelect(option: SelectableValue<Script>) {
     if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      const script: Script = option.value;
 
       onChange({
         ...query,
-        pxlScript: script.script,
-        scriptName: script.name,
-        isTabular: script.isTabular || false,
-        columnOptions: option.columnOptions,
+        queryType: 'run-script' as const,
+        queryBody: { pxlScript: option?.value.script ?? '' },
+        queryMeta: {
+          isTabular: option.value.isTabular || false,
+          columnOptions: option.columnOptions,
+        },
       });
       onRunQuery();
     }
@@ -66,18 +70,22 @@ export class QueryEditor extends PureComponent<Props> {
   onFilterSelect(chosenOptions: Array<SelectableValue<{}>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, pxlScript: this.props.query.pxlScript, selectedColumns: chosenOptions });
+
+      console.log('chosenOptions: ', chosenOptions);
+      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColumns: chosenOptions } });
+
+      console.log('On change query: ', query);
       onRunQuery();
     }
   }
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
-    const { pxlScript } = query;
+    const pxlScript = query?.queryBody?.pxlScript;
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <div style={{ display: 'flex' }}>
+        <div className="gf-form" style={{ display: 'flex' }}>
           <Select
             options={scriptOptions}
             width={32}
@@ -85,10 +93,10 @@ export class QueryEditor extends PureComponent<Props> {
             defaultValue={scriptOptions[0]}
           />
 
-          {query.isTabular ? (
+          {query.queryMeta && query.queryMeta.isTabular ? (
             <MultiSelect
               placeholder="Select columns to filter"
-              options={query.columnOptions}
+              options={query.queryMeta.columnOptions}
               onChange={this.onFilterSelect.bind(this)}
               width={32}
               inputId="column-selection"
@@ -96,9 +104,18 @@ export class QueryEditor extends PureComponent<Props> {
           ) : (
             <></>
           )}
+          <Button
+            style={{ marginLeft: '10px' }}
+            onClick={() => {
+              this.props.onRunQuery();
+            }}
+          >
+            Run Script
+          </Button>
         </div>
+
         <Editor
-          value={pxlScript}
+          value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
           highlight={(code) => {
             if (code !== undefined) {

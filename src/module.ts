@@ -21,7 +21,9 @@ import { DataSource } from './datasource';
 import { ConfigEditor } from './config_editor';
 import { QueryEditor } from './query_editor';
 import { PixieDataQuery, PixieDataSourceOptions } from './types';
+import { VariableQueryEditor } from 'variable_query_editor';
 
 export const plugin = new DataSourcePlugin<DataSource, PixieDataQuery, PixieDataSourceOptions>(DataSource)
   .setConfigEditor(ConfigEditor)
-  .setQueryEditor(QueryEditor);
+  .setQueryEditor(QueryEditor)
+  .setVariableQueryEditor(VariableQueryEditor);

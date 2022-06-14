@@ -19,18 +19,34 @@
 import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
+// Types of available queries to the backend
+export type QueryType = 'run-script' | 'get-clusters';
+
+// Describes variable query to be sent to the backend.
+export interface PixieVariableQuery {
+  queryType: QueryType;
+}
+
 // PixieDataQuery is the interface representing a query in Pixie.
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
-  pxlScript: string;
-  scriptName: string;
-  isTabular: boolean;
-  columnOptions: Array<{ label: string; value: number }>;
-  selectedColumns: SelectableValue<{}>;
+  queryType: QueryType;
+  queryBody?: {
+    pxlScript?: string;
+  };
+  // queryMeta is used for UI-Rendering
+  queryMeta?: {
+    isTabular?: boolean;
+    columnOptions?: Array<{ label: string; value: number }>;
+    selectedColumns?: Array<SelectableValue<{}>>;
+  };
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {
-  pxlScript: scriptOptions[0].value?.script,
+  queryType: 'run-script' as const,
+  queryBody: {
+    pxlScript: scriptOptions[0].value?.script ?? '',
+  },
 };
 
 export interface PixieDataSourceOptions extends DataSourceJsonData {}
