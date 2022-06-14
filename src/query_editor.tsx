@@ -94,6 +94,7 @@ export class QueryEditor extends PureComponent<Props> {
 
           {query.queryMeta && query.queryMeta.isTabular ? (
             <MultiSelect
+              className="m-2"
               placeholder="Select columns to filter"
               options={query.queryMeta.columnOptions}
               onChange={this.onFilterSelect.bind(this)}
@@ -104,7 +105,7 @@ export class QueryEditor extends PureComponent<Props> {
             <></>
           )}
           <Button
-            style={{ marginLeft: '10px' }}
+            className="m-2"
             onClick={() => {
               this.props.onRunQuery();
             }}
