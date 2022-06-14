@@ -17,8 +17,17 @@
  */
 
 import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame } from '@grafana/data';
-import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
+import { getColumnsScript } from './column_filtering';
+
+const timeVars = [
+  ['$__from', '__time_from'],
+  ['$__to', '__time_to'],
+  ['$__interval', '__interval'],
+];
+
+const columnsVar = '$__columns';
 
 interface ClusterMeta {
   id: string;
@@ -34,10 +43,25 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
-    const pxlScript = query.queryBody?.pxlScript ?? '';
+    let pxlScript = query.queryBody?.pxlScript ?? '';
+
+    // Replace Grafana's time global variables from the script with Pixie's time macros
+    for (const [changeFrom, changeTo] of timeVars) {
+      pxlScript = pxlScript.replaceAll(changeFrom, changeTo);
+    }
+
+    // Replace $__columns with columns selected to filter
+    if (query.queryMeta && query.queryMeta.isTabular) {
+      pxlScript = pxlScript.replace(
+        columnsVar,
+        getColumnsScript(query.queryMeta.selectedColumns!, query.queryMeta.columnOptions!)
+      );
+    }
+
     return {
       ...query,
       queryBody: {
+        ...query.queryBody,
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
               ...scopedVars,

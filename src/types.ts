@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
 // Types of available queries to the backend
@@ -34,12 +34,18 @@ export interface PixieDataQuery extends DataQuery {
   queryBody?: {
     pxlScript?: string;
   };
+  // queryMeta is used for UI-Rendering
+  queryMeta?: {
+    isTabular?: boolean;
+    columnOptions?: Array<{ label: string; value: number }>;
+    selectedColumns?: Array<SelectableValue<{}>>;
+  };
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {
   queryType: 'run-script' as const,
   queryBody: {
-    pxlScript: scriptOptions[0].value,
+    pxlScript: scriptOptions[0].value?.script ?? '',
   },
 };
 

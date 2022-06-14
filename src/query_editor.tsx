@@ -17,11 +17,9 @@
  */
 
 import defaults from 'lodash/defaults';
-
 import React, { PureComponent } from 'react';
-import { Select, Button } from '@grafana/ui';
+import { Select, MultiSelect, Button } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
-
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
@@ -29,7 +27,7 @@ import 'prism-themes/themes/prism-vsc-dark-plus.css';
 import './query_editor.css';
 
 import { DataSource } from './datasource';
-import { scriptOptions } from 'pxl_scripts';
+import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
@@ -54,14 +52,27 @@ export class QueryEditor extends PureComponent<Props> {
     });
   }
 
-  onScriptSelect(option: SelectableValue<string>) {
-    if (option.value !== undefined) {
+  onScriptSelect(option: SelectableValue<Script>) {
+    if (option.value !== undefined && option.label !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
+
       onChange({
         ...query,
         queryType: 'run-script' as const,
-        queryBody: { pxlScript: option.value },
+        queryBody: { pxlScript: option?.value.script ?? '' },
+        queryMeta: {
+          isTabular: option.value.isTabular || false,
+          columnOptions: option.columnOptions,
+        },
       });
+      onRunQuery();
+    }
+  }
+
+  onFilterSelect(chosenOptions: Array<SelectableValue<{}>>) {
+    if (chosenOptions !== undefined) {
+      const { onChange, query, onRunQuery } = this.props;
+      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColumns: chosenOptions } });
       onRunQuery();
     }
   }
@@ -72,13 +83,25 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <div className="gf-form">
+        <div className="gf-form" style={{ display: 'flex' }}>
           <Select
             options={scriptOptions}
             width={32}
             onChange={this.onScriptSelect.bind(this)}
             defaultValue={scriptOptions[0]}
           />
+
+          {query.queryMeta && query.queryMeta.isTabular ? (
+            <MultiSelect
+              placeholder="Select columns to filter"
+              options={query.queryMeta.columnOptions}
+              onChange={this.onFilterSelect.bind(this)}
+              width={32}
+              inputId="column-selection"
+            />
+          ) : (
+            <></>
+          )}
           <Button
             style={{ marginLeft: '10px' }}
             onClick={() => {
