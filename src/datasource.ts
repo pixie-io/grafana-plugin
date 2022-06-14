@@ -17,8 +17,8 @@
  */
 
 import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame, VariableModel } from '@grafana/data';
-import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
+import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
+import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery, clusterVariableName } from './types';
 import { getColumnsScript } from './column_filtering';
 
 const timeVars = [
@@ -42,6 +42,14 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     this.backendSrv = getBackendSrv();
   }
 
+  getClusterId(): string {
+    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
+
+    // find cluster variable and convert it to any since the variable value field is not exposed
+    const pixieClusterIdVariable = dashboardVariables.find((variable) => variable.name === clusterVariableName) as any;
+    return pixieClusterIdVariable?.current?.value ?? '';
+  }
+
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
     let pxlScript = query.queryBody?.pxlScript ?? '';
 
@@ -58,20 +66,15 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       );
     }
 
-    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
-
-    // find cluster variable and convert it to any since the variable value field is not exposed
-    const pixieClusterID = dashboardVariables.find((variable) => variable.name === 'pixieCluster') as any;
-
     return {
       ...query,
       queryBody: {
         ...query.queryBody,
-        clusterID: pixieClusterID?.current?.value ?? '',
+        clusterId: this.getClusterId(),
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
-              ...scopedVars,
-            })
+            ...scopedVars,
+          })
           : '',
       },
     };
@@ -86,7 +89,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
         type: this.type,
         uid: this.uid,
       },
-      queryType: query.queryType,
+      ...query,
     };
 
     options = {
@@ -124,21 +127,45 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     return zipped;
   }
 
+  convertClusterData(data: any) {
+    return data.map((entry: any) => ({
+      text: entry.name,
+      value: entry.id,
+    }));
+  }
+
+  convertPodData(data: any) {
+    return data.map((entry: any) => ({
+      text: entry.pod,
+      value: entry.pod,
+    }));
+  }
+
   async metricFindQuery(query: PixieVariableQuery, options?: any) {
     const variableName: string = options.variable.name;
-    //Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
+    //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
+
+    if (query.queryType === 'get-pods') {
+      const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterId, options.scopedVars);
+      query = { ...query, queryBody: { clusterId: interpolatedClusterId } };
+    }
 
     // Fetch variables from the backend
     const response = await this.fetchMetricNames(query, options);
     //Convert the response to a DataFrame
-    const vizierFrame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
-    //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
-    const clusterData: ClusterMeta[] = this.zipGrafanaDataFrame(vizierFrame);
+    const frame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
 
-    return clusterData.map((entry) => ({
-      text: entry.name,
-      value: entry.id,
-    }));
+    //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
+    const flatData: ClusterMeta[] = this.zipGrafanaDataFrame(frame);
+
+    switch (query.queryType) {
+      case 'get-clusters':
+        return this.convertClusterData(flatData);
+      case 'get-pods':
+        return this.convertPodData(flatData);
+      default:
+        return Promise.resolve(undefined);
+    }
   }
 }

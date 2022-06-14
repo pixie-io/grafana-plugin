@@ -17,9 +17,11 @@
  */
 
 import { SelectableValue } from '@grafana/data';
-import { Select } from '@grafana/ui';
-import React from 'react';
-import { PixieVariableQuery, QueryType } from 'types';
+import { Select, Input, Button } from '@grafana/ui';
+import React, { useState } from 'react';
+import { clusterVariableName, PixieVariableQuery, QueryType } from 'types';
+
+import './styles.css';
 
 //Specifies what properties the VariableQueryEditor receives in constructor
 interface VariableQueryProps {
@@ -27,19 +29,52 @@ interface VariableQueryProps {
 }
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) => {
-  const onClusterSelect = (option: SelectableValue<QueryType>) => {
-    if (option.value !== undefined && option.label !== undefined) {
-      onChange({ queryType: option.value }, option.label);
-    }
-  };
+  const valueOptions: Array<SelectableValue<QueryType>> = [
+    { label: 'Clusters', value: 'get-clusters' as const },
+    { label: 'Pods', value: 'get-pods' as const },
+  ];
 
-  const valueOptions: Array<SelectableValue<QueryType>> = [{ label: 'Clusters', value: 'get-clusters' as const }];
+  let [currentValue, setCurrentValue] = useState(valueOptions[0]);
+  let [clusterId, setClusterId] = useState(`${clusterVariableName}`);
+
+  const onSubmit = () => {
+    let query: PixieVariableQuery = { queryType: currentValue.value! };
+    if (query.queryType === 'get-pods') {
+      query.queryBody = { clusterId: clusterId };
+    }
+    onChange(query, currentValue.label!);
+  };
 
   return (
     <>
       <div className="gf-form">
         <span className="gf-form-label width-10">Fetchable Data</span>
-        <Select options={valueOptions} width={32} onChange={onClusterSelect} defaultValue={valueOptions[0]} />
+        <Select
+          value={currentValue}
+          options={valueOptions}
+          width={32}
+          onChange={(o) => {
+            setCurrentValue(o);
+          }}
+          defaultValue={valueOptions[0]}
+        />
+
+        {currentValue.value === 'get-pods' && (
+          <Input
+            className="m-2"
+            about="Cluster ID"
+            width={32}
+            marginWidth={5}
+            value={clusterId}
+            onChange={(e) => {
+              setClusterId(e.currentTarget.value);
+            }}
+          />
+        )}
+
+        <Button className="m-2" onClick={onSubmit}>
+          Submit
+        </Button>
       </div>
     </>
   );

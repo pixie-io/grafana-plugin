@@ -20,11 +20,14 @@ import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
 // Types of available queries to the backend
-export type QueryType = 'run-script' | 'get-clusters';
+export type QueryType = 'run-script' | 'get-clusters' | 'get-pods';
 
 // Describes variable query to be sent to the backend.
 export interface PixieVariableQuery {
   queryType: QueryType;
+  queryBody?: {
+    clusterId?: string;
+  };
 }
 
 // PixieDataQuery is the interface representing a query in Pixie.
@@ -33,6 +36,7 @@ export interface PixieDataQuery extends DataQuery {
   queryType: QueryType;
   clusterID?: string;
   queryBody?: {
+    clusterId?: string;
     pxlScript?: string;
   };
   // queryMeta is used for UI-Rendering
@@ -58,3 +62,6 @@ export interface PixieSecureDataSourceOptions {
   // Address of Pixie cloud.
   cloudAddr?: string;
 }
+
+// predefined global dashboard variable name for cluster variable
+export const clusterVariableName = 'pixieCluster';
