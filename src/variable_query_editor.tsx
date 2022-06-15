@@ -72,7 +72,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
           />
         )}
 
-        <Button className="m-2" onClick={onSubmit}>
+        <Button className={currentValue.value === 'get-pods' ? '' : 'm-2'} onClick={onSubmit}>
           Submit
         </Button>
       </div>

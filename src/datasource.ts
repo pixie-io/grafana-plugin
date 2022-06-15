@@ -84,12 +84,12 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const refId = options?.variable?.name ?? 'tempvar';
 
     const interpolatedQuery = {
+      ...query,
       refId,
       datasource: {
         type: this.type,
         uid: this.uid,
       },
-      ...query,
     };
 
     options = {
