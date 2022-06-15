@@ -73,7 +73,6 @@ func (qp PixieQueryProcessor) queryScript(
 	clusterID string,
 ) (*backend.DataResponse, error) {
 
-	backend.Logger.Error(fmt.Sprintf("clusterID: %+v", clusterID))
 	vz, err := qp.client.NewVizierClient(ctx, clusterID)
 	if err != nil {
 		log.DefaultLogger.Error(fmt.Sprintf("Unable to create Vizier Client: %+v", err))
