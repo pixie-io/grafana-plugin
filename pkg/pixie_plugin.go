@@ -34,7 +34,6 @@ const (
 	// Define keys to retrieve configs passed from UI.
 	apiKeyField    = "apiKey"
 	cloudAddrField = "cloudAddr"
-	clusterIDField = "clusterID"
 )
 
 // createPixieDatasource creates a new Pixie datasource.
@@ -111,27 +110,27 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
 	apiToken := config[apiKeyField]
-	clusterID := config[clusterIDField]
 	cloudAddr := config[cloudAddrField]
 
 	var qm queryModel
 	if err := json.Unmarshal(query.JSON, &qm); err != nil {
-		return nil, fmt.Errorf("Error unmarshalling JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshalling JSON: %v", err)
 	}
 
 	client, err := createClient(ctx, apiToken, cloudAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating Pixie Client: %v", err)
+		return nil, fmt.Errorf("error creating Pixie Client: %v", err)
 	}
 
 	qp := PixieQueryProcessor{
 		client: client,
 	}
 
-	// if cluster id is not set, fall back to using id from config
-	if len(qm.QueryBody.ClusterID) != 0 {
-		clusterID = qm.QueryBody.ClusterID
+	if qm.QueryType != GetClusters && len(qm.QueryBody.ClusterID) == 0 {
+		return nil, fmt.Errorf("no clusterID present in the request")
 	}
+
+	clusterID := qm.QueryBody.ClusterID
 
 	switch qm.QueryType {
 	case RunScript:
@@ -139,7 +138,7 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	case GetClusters:
 		return qp.queryClusters(ctx, apiToken)
 	default:
-		return nil, fmt.Errorf("Unknown query type: %v", qm.QueryType)
+		return nil, fmt.Errorf("unknown query type: %v", qm.QueryType)
 	}
 }
 
@@ -149,17 +148,10 @@ func (td *PixieDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 	message := "Connection to Pixie cluster successfully configured"
 	config := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData
 
-	client, err := createClient(ctx, config[apiKeyField], config[cloudAddrField])
+	_, err := createClient(ctx, config[apiKeyField], config[cloudAddrField])
 	if err != nil {
 		status = backend.HealthStatusError
 		message = fmt.Sprintf("Error connecting Pixie client: %s", err.Error())
-	}
-
-	vz, err := client.NewVizierClient(ctx, config[clusterIDField])
-
-	if vz == nil || err != nil {
-		status = backend.HealthStatusError
-		message = fmt.Sprintf("Error connecting to Vizier: %s", err.Error())
 	}
 
 	log.DefaultLogger.Warn(message)

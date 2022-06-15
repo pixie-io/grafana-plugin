@@ -55,8 +55,6 @@ export interface PixieDataSourceOptions extends DataSourceJsonData {}
 export interface PixieSecureDataSourceOptions {
   // Pixie API key.
   apiKey?: string;
-  // ID of the Pixie cluster to query.
-  clusterID?: string;
   // Address of Pixie cloud.
   cloudAddr?: string;
 }
