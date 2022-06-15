@@ -16,7 +16,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame, VariableModel } from '@grafana/data';
+import {
+  DataFrame,
+  DataSourceInstanceSettings,
+  MetricFindValue,
+  ScopedVars,
+  toDataFrame,
+  VariableModel,
+} from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
 import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery, clusterVariableName } from './types';
 import { getColumnsScript } from './column_filtering';
@@ -127,26 +134,38 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     return zipped;
   }
 
-  convertClusterData(data: any) {
-    return data.map((entry: any) => ({
-      text: entry.name,
-      value: entry.id,
-    }));
+  /**
+   * Converts zipped output into dashboard ingestible data.
+   *
+   * @param data zipped data
+   * @param textField field to use for dashboard variable name.
+   * Set to `undefined` if textField should be the same as valueField in the output.
+   *
+   * @param valueField field to use for dashboard variable value
+   */
+  convertData(data: any[], textField: string | undefined, valueField: string): MetricFindValue[] {
+    const output = data.flatMap((entry: any) => {
+      let values: string[] = [entry[valueField] as string];
+      //check if the value is in array form
+      if (values[0].includes(',')) {
+        //expand and clean values
+        values = values[0].split(',').map((str) => str.replaceAll('"', '').replaceAll('[', '').replaceAll(']', ''));
+      }
+      return values.map((value) => ({
+        // if textField undefined use value for the text label
+        text: textField ? entry[textField] : value,
+        value: value,
+      }));
+    });
+    return output;
   }
 
-  convertPodData(data: any) {
-    return data.map((entry: any) => ({
-      text: entry.pod,
-      value: entry.pod,
-    }));
-  }
-
-  async metricFindQuery(query: PixieVariableQuery, options?: any) {
+  async metricFindQuery(query: PixieVariableQuery, options?: any): Promise<MetricFindValue[]> {
     const variableName: string = options.variable.name;
     //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
-    if (query.queryType === 'get-pods' && query.queryBody?.clusterID === `\$${clusterVariableName}`) {
+    if (query.queryType !== 'get-clusters' && query.queryBody?.clusterID === `\$${clusterVariableName}`) {
       const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterID, options.scopedVars);
       query = { ...query, queryBody: { clusterID: interpolatedClusterId } };
     }
@@ -160,11 +179,17 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
 
     switch (query.queryType) {
       case 'get-clusters':
-        return this.convertClusterData(flatData);
+        return this.convertData(flatData, 'name', 'id');
       case 'get-pods':
-        return this.convertPodData(flatData);
+        return this.convertData(flatData, undefined, 'pod');
+      case 'get-services':
+        return this.convertData(flatData, undefined, 'service');
+      case 'get-namespaces':
+        return this.convertData(flatData, undefined, 'namespace');
+      case 'get-nodes':
+        return this.convertData(flatData, undefined, 'node');
       default:
-        return Promise.resolve(undefined);
+        return Promise.resolve([]);
     }
   }
 }

@@ -32,6 +32,9 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
   const valueOptions: Array<SelectableValue<QueryType>> = [
     { label: 'Clusters', value: 'get-clusters' as const },
     { label: 'Pods', value: 'get-pods' as const },
+    { label: 'Services', value: 'get-services' as const },
+    { label: 'Namespaces', value: 'get-namespaces' as const },
+    { label: 'Node', value: 'get-nodes' as const },
   ];
 
   let [currentValue, setCurrentValue] = useState(valueOptions[0]);
@@ -39,7 +42,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
 
   const onSubmit = () => {
     let query: PixieVariableQuery = { queryType: currentValue.value! };
-    if (query.queryType === 'get-pods') {
+    if (query.queryType !== 'get-clusters') {
       query.queryBody = { clusterID: clusterID };
     }
     onChange(query, currentValue.label!);
@@ -59,7 +62,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
           defaultValue={valueOptions[0]}
         />
 
-        {currentValue.value === 'get-pods' && (
+        {currentValue.value !== 'get-clusters' && (
           <Input
             className="m-2"
             about="Cluster ID"

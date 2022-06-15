@@ -20,7 +20,7 @@ import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
 import { scriptOptions } from 'pxl_scripts';
 
 // Types of available queries to the backend
-export type QueryType = 'run-script' | 'get-clusters' | 'get-pods';
+export type QueryType = 'run-script' | 'get-clusters' | 'get-pods' | 'get-services' | 'get-namespaces' | 'get-nodes';
 
 // Describes variable query to be sent to the backend.
 export interface PixieVariableQuery {

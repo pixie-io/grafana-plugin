@@ -88,9 +88,12 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 type QueryType string
 
 const (
-	RunScript   QueryType = "run-script"
-	GetClusters QueryType = "get-clusters"
-	GetPods     QueryType = "get-pods"
+	RunScript     QueryType = "run-script"
+	GetClusters   QueryType = "get-clusters"
+	GetPods       QueryType = "get-pods"
+	GetServices   QueryType = "get-services"
+	GetNamespaces QueryType = "get-namespaces"
+	GetNodes      QueryType = "get-nodes"
 )
 
 type queryBody struct {
@@ -140,7 +143,15 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 		return qp.queryClusters(ctx)
 	case GetPods:
 		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.pod = df.ctx['pod_name']\ndf = df[['pod']]\npx.display(df)"
-		backend.Logger.Debug(podPxlScript)
+		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+	case GetServices:
+		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.service = df.ctx['service']\ndf = df[df.service != '']\ndf = df.groupby('service').agg()\npx.display(df)"
+		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+	case GetNamespaces:
+		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.namespace = df.ctx['namespace']\npx.display(df.groupby('namespace').agg())"
+		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+	case GetNodes:
+		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.node = df.ctx['node_name']\npx.display(df.groupby('node').agg())"
 		return qp.queryScript(ctx, podPxlScript, query, clusterID)
 	default:
 		return nil, fmt.Errorf("unknown query type: %v", qm.QueryType)
