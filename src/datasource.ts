@@ -61,13 +61,13 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
 
     // find cluster variable and convert it to any since the variable value field is not exposed
-    const pixieClusterId = dashboardVariables.find((variable) => variable.name === 'pixieCluster') as any;
+    const pixieClusterID = dashboardVariables.find((variable) => variable.name === 'pixieCluster') as any;
 
     return {
       ...query,
-      clusterId: pixieClusterId?.current?.value ?? '',
       queryBody: {
         ...query.queryBody,
+        clusterID: pixieClusterID?.current?.value ?? '',
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
               ...scopedVars,

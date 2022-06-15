@@ -47,7 +47,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonData: {
         ...options?.secureJsonData,
-        clusterId: event.target.value,
+        clusterID: event.target.value,
       },
     });
   };
@@ -137,8 +137,8 @@ export class ConfigEditor extends PureComponent<Props, State> {
         <div className="gf-form-inline">
           <div className="gf-form">
             <SecretFormField
-              isConfigured={(secureJsonFields && secureJsonFields.clusterId) as boolean}
-              value={secureJsonData.clusterId || ''}
+              isConfigured={(secureJsonFields && secureJsonFields.clusterID) as boolean}
+              value={secureJsonData.clusterID || ''}
               label="Cluster ID"
               placeholder="Cluster ID"
               labelWidth={20}

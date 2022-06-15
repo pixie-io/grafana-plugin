@@ -34,7 +34,7 @@ const (
 	// Define keys to retrieve configs passed from UI.
 	apiKeyField    = "apiKey"
 	cloudAddrField = "cloudAddr"
-	clusterIDField = "clusterId"
+	clusterIDField = "clusterID"
 )
 
 // createPixieDatasource creates a new Pixie datasource.
@@ -96,12 +96,12 @@ const (
 type queryBody struct {
 	// The body of a pxl script
 	PxlScript string
+	ClusterID string `json:"clusterID"`
 }
 
 type queryModel struct {
 	// QueryType specifies which API call to call.
 	QueryType QueryType `json:"queryType"`
-	ClusterId string    `json:"clusterId"`
 	// QueryBody contains any additional information needed to make the API call
 	QueryBody queryBody `json:"queryBody"`
 }
@@ -129,8 +129,8 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	}
 
 	// if cluster id is not set, fall back to using id from config
-	if len(qm.ClusterId) != 0 {
-		clusterID = qm.ClusterId
+	if len(qm.QueryBody.ClusterID) != 0 {
+		clusterID = qm.QueryBody.ClusterID
 	}
 
 	switch qm.QueryType {
