@@ -31,6 +31,7 @@ export interface PixieVariableQuery {
 // Pixie queries use PxL, Pixie's query language.
 export interface PixieDataQuery extends DataQuery {
   queryType: QueryType;
+  clusterID?: string;
   queryBody?: {
     pxlScript?: string;
   };
@@ -54,8 +55,6 @@ export interface PixieDataSourceOptions extends DataSourceJsonData {}
 export interface PixieSecureDataSourceOptions {
   // Pixie API key.
   apiKey?: string;
-  // ID of the Pixie cluster to query.
-  clusterId?: string;
   // Address of Pixie cloud.
   cloudAddr?: string;
 }
