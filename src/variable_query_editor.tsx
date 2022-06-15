@@ -35,12 +35,12 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
   ];
 
   let [currentValue, setCurrentValue] = useState(valueOptions[0]);
-  let [clusterId, setClusterId] = useState(`${clusterVariableName}`);
+  let [clusterID, setClusterID] = useState(`\$${clusterVariableName}`);
 
   const onSubmit = () => {
     let query: PixieVariableQuery = { queryType: currentValue.value! };
     if (query.queryType === 'get-pods') {
-      query.queryBody = { clusterId: clusterId };
+      query.queryBody = { clusterID: clusterID };
     }
     onChange(query, currentValue.label!);
   };
@@ -53,8 +53,8 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
           value={currentValue}
           options={valueOptions}
           width={32}
-          onChange={(o) => {
-            setCurrentValue(o);
+          onChange={(option) => {
+            setCurrentValue(option);
           }}
           defaultValue={valueOptions[0]}
         />
@@ -65,9 +65,9 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
             about="Cluster ID"
             width={32}
             marginWidth={5}
-            value={clusterId}
+            value={clusterID}
             onChange={(e) => {
-              setClusterId(e.currentTarget.value);
+              setClusterID(e.currentTarget.value);
             }}
           />
         )}

@@ -26,7 +26,7 @@ export type QueryType = 'run-script' | 'get-clusters' | 'get-pods';
 export interface PixieVariableQuery {
   queryType: QueryType;
   queryBody?: {
-    clusterId?: string;
+    clusterID?: string;
   };
 }
 
@@ -36,7 +36,7 @@ export interface PixieDataQuery extends DataQuery {
   queryType: QueryType;
   clusterID?: string;
   queryBody?: {
-    clusterId?: string;
+    clusterID?: string;
     pxlScript?: string;
   };
   // queryMeta is used for UI-Rendering

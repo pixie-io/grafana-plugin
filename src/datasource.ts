@@ -70,11 +70,11 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       ...query,
       queryBody: {
         ...query.queryBody,
-        clusterId: this.getClusterId(),
+        clusterID: this.getClusterId(),
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
-            ...scopedVars,
-          })
+              ...scopedVars,
+            })
           : '',
       },
     };
@@ -146,11 +146,10 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
-    if (query.queryType === 'get-pods') {
-      const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterId, options.scopedVars);
-      query = { ...query, queryBody: { clusterId: interpolatedClusterId } };
+    if (query.queryType === 'get-pods' && query.queryBody?.clusterID === `\$${clusterVariableName}`) {
+      const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterID, options.scopedVars);
+      query = { ...query, queryBody: { clusterID: interpolatedClusterId } };
     }
-
     // Fetch variables from the backend
     const response = await this.fetchMetricNames(query, options);
     //Convert the response to a DataFrame
