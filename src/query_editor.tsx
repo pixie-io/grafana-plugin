@@ -31,7 +31,6 @@ import { scriptOptions, Script } from 'pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
-type Hotkey = 'MetaLeft' | 'MetaRight' | 'ControlRight' | 'ControlLeft' | 'Enter';
 
 const editorStyle = {
   fontFamily: 'Consolas, monaco, monospace',
@@ -44,15 +43,6 @@ const editorStyle = {
 };
 
 export class QueryEditor extends PureComponent<Props> {
-  /** keyMap which stores currently pressed keys. Used to enable shortcuts.*/
-  private _keyMap = new Map<Hotkey, boolean>([
-    ['MetaLeft', false],
-    ['MetaRight', false],
-    ['ControlRight', false],
-    ['ControlLeft', false],
-    ['Enter', false],
-  ]);
-
   onPxlScriptChange(event: string) {
     const { onChange, query } = this.props;
     onChange({
@@ -84,19 +74,6 @@ export class QueryEditor extends PureComponent<Props> {
       const { onChange, query, onRunQuery } = this.props;
       onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColumns: chosenOptions } });
       onRunQuery();
-    }
-  }
-
-  private handleKeyPress(code: Hotkey, keydown: boolean) {
-    this._keyMap.set(code, keydown);
-    const metaKeys: Hotkey[] = ['MetaLeft', 'MetaRight', 'ControlRight', 'ControlLeft'];
-    const metaKeyPressed = metaKeys.some((metaKey) => this._keyMap.get(metaKey));
-
-    const { onRunQuery } = this.props;
-    if (metaKeyPressed && this._keyMap.get('Enter')) {
-      onRunQuery();
-      // reset key map to avoid sending too many requests to the backend
-      this._keyMap.forEach((_, key, map) => map.set(key, false));
     }
   }
 
@@ -141,12 +118,12 @@ export class QueryEditor extends PureComponent<Props> {
           onValueChange={this.onPxlScriptChange.bind(this)}
           textareaId="code-area"
           onKeyDown={(e) => {
-            const code = e.code as Hotkey;
-            this.handleKeyPress(code, true);
-          }}
-          onKeyUp={(e) => {
-            const code = e.code as Hotkey;
-            this.handleKeyPress(code, false);
+            console.log(e);
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              const { onRunQuery } = this.props;
+              onRunQuery();
+              e.preventDefault();
+            }
           }}
           highlight={(code) => {
             if (code !== undefined) {
