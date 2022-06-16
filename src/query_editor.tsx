@@ -117,6 +117,13 @@ export class QueryEditor extends PureComponent<Props> {
           value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
           textareaId="code-area"
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              const { onRunQuery } = this.props;
+              onRunQuery();
+              e.preventDefault();
+            }
+          }}
           highlight={(code) => {
             if (code !== undefined) {
               return highlight(code, languages.python, 'python')
