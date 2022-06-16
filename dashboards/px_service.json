@@ -1,0 +1,855 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 8,
+  "iteration": 1655420957845,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "request throughput",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "/s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = inbound_let_timeseries(start_time, service)\noutput.request_throughput = output.request_throughput * px.pow(10,9)\noutput = output[['time_', 'request_throughput']]\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "error rate",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "/s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = inbound_let_timeseries(start_time, service)\noutput.errors_per_ns = output.errors_per_ns * px.pow(10,9)\noutput = output[['time_', 'errors_per_ns']]\n\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "latency",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = inbound_let_timeseries(start_time, service)\noutput.latency_p50 = output.latency_p50 / px.pow(10,6)\noutput.latency_p90 = output.latency_p90 / px.pow(10,6)\noutput.latency_p99 = output.latency_p99 / px.pow(10,6)\noutput = output[['time_', 'latency_p50', 'latency_p90', 'latency_p99']]\n\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "response data throughput",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "KBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = inbound_let_timeseries(start_time, service)\noutput.bytes_per_ns = output.bytes_per_ns * px.pow(10,9) / px.pow(2,10)\noutput = output[['time_', 'bytes_per_ns']]\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP Response Data Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "/s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "state"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 127
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "Failed": {
+                        "color": "red",
+                        "index": 5
+                      },
+                      "Pending": {
+                        "color": "yellow",
+                        "index": 6
+                      },
+                      "Running": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "Succeeded": {
+                        "color": "green",
+                        "index": 4
+                      },
+                      "Terminated": {
+                        "color": "red",
+                        "index": 3
+                      },
+                      "Unknown": {
+                        "color": "red",
+                        "index": 7
+                      },
+                      "Waiting": {
+                        "color": "yellow",
+                        "index": 8
+                      },
+                      "false": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "true": {
+                        "color": "green",
+                        "index": 1
+                      }
+                    },
+                    "type": "value"
+                  } 
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "message"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 214
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 16,
+        "x": 8,
+        "y": 12
+      },
+      "id": 6,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = pods_for_service(start_time, service)\n\noutput.state = px.pluck(output.pod_status, \"phase\")\noutput.message = px.pluck(output.pod_status, \"message\") \n\noutput = output[['pod', 'state', 'message', 'pod_create_time']]\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod List",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latency_p99"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green"
+                    },
+                    {
+                      "color": "light-orange",
+                      "value": 150
+                    },
+                    {
+                      "color": "red",
+                      "value": 300
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 7,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "latency_p99"
+          }
+        ]
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = inbound_let_summary(start_time, service)\noutput.latency_p99 = px.pluck_float64(output.latency, \"p99\") / px.pow(10,6)\n\noutput = output[['requesting_ip', 'requesting_pod', 'requesting_svc', 'latency_p99', 'error_rate']]\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Inbound HTTP Traffic To Service",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latency"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "light-green"
+                    },
+                    {
+                      "color": "light-orange",
+                      "value": 150
+                    },
+                    {
+                      "color": "red",
+                      "value": 300
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "resp_status"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green"
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 300
+                    },
+                    {
+                      "color": "dark-red",
+                      "value": 400
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 24,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "id": 8,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "latency"
+          }
+        ]
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Service Overview\n\n This script gets an overview of an individual service, summarizing its request statistics.\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\nstart_time = __time_from\nservice = \"$pixieService\"\n\ndef pods_for_service(start_time: int, service: px.Service):\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[px.has_service_name(df.ctx['service'], service)]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby('pod').agg()\n    df.pod_create_time = px.pod_name_to_start_time(df.pod)\n    df.pod_status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef inbound_let_timeseries(start_time: int, service: px.Service):\n    ''' Compute the let as a timeseries for requests received by `service`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @service: The name of the service to filter on.\n\n    '''\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n\n    df = df.groupby(['timestamp']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate_per_window=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Format the result of LET aggregates into proper scalar formats and\n    # time series.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.errors_per_ns = df.error_rate_per_window * df.request_throughput / px.DurationNanos(1)\n    df.error_rate = px.Percent(df.error_rate_per_window)\n    df.bytes_per_ns = df.bytes_total / window_ns\n    df.time_ = df.timestamp\n\n    return df[['time_', 'latency_p50', 'latency_p90', 'latency_p99',\n               'request_throughput', 'errors_per_ns', 'error_rate', 'bytes_per_ns']]\n\n\ndef inbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests inbound to `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.responder, service)]\n    return df.drop('responder')\n\n\ndef outbound_let_summary(start_time: int, service: px.Service):\n    ''' Gets a summary of requests outbound from `service`.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @service: The service to filter on.\n    '''\n    df = let_summary_helper(start_time)\n    df = df[px.has_service_name(df.requestor, service)]\n    return df.drop(['requestor', 'remote_addr'])\n\n\ndef let_summary_helper(start_time: int):\n    ''' Gets a summary of request statistics. This is a helper function, filtering by\n        service is done elsewhere.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    '''\n    df = let_helper(start_time)\n\n    df = df.groupby(['service', 'remote_addr']).agg(\n        latency=('latency', px.quantiles),\n        total_request_count=('latency', px.count)\n        error_rate=('failure', px.mean),\n    )\n\n    df.error_rate = px.Percent(df.error_rate)\n    df.responder = df.service\n    df.requesting_ip = df.remote_addr\n    df.requesting_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.requesting_svc = px.pod_id_to_service_name(px.ip_to_pod_id(df.remote_addr))\n\n    return df[['responder', 'requesting_ip', 'requesting_pod', 'requesting_svc',\n               'latency', 'error_rate']]\n\n\ndef service_slow_requests(start_time: int, service: px.Service):\n    df = let_helper(start_time)\n    df = df[px.has_service_name(df.service, service)]\n    quantiles = df.groupby('service').agg(\n        latency_quantiles=('latency', px.quantiles)\n    )\n    quantiles.service_p99 = px.pluck_float64(quantiles.latency_quantiles, 'p99')\n    quantiles = quantiles.drop('latency_quantiles')\n    requests = df.merge(quantiles, left_on='service', right_on='service', how='inner',\n                        suffixes=['', '_x'])\n    requests = requests[requests.latency >= px.floor(requests.service_p99)]\n\n    return requests[['time_', 'pod', 'latency', 'req_method',\n                     'req_path', 'req_body', 'resp_status',\n                     'remote_addr', 'remote_port',\n                     'resp_body']].head(100)\n\n\ndef let_helper(start_time: int):\n    ''' Compute the initial part of the let for requests.\n        Filtering to inbound/outbound traffic by service is done by the calling function.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod']\n    df.latency = df.latency\n\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n  \noutput = service_slow_requests(start_time, service)\noutput.latency = output.latency / px.pow(10,6)\noutput.timestamp = output.time_\noutput = output.drop('time_')\n\noutput = output[['timestamp', 'pod', 'latency', 'req_method', 'req_path', 'req_body', 'resp_status', 'remote_addr', 'remote_port', 'resp_body']]\npx.display(output)\n"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Sample Of Slow Inbound Requests",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Clusters",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "pixieCluster",
+        "options": [],
+        "query": {
+          "queryType": "get-clusters"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Services",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "pixieService",
+        "options": [],
+        "query": {
+          "queryBody": {
+            "clusterID": "$pixieCluster"
+          },
+          "queryType": "get-services"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "px/service",
+  "uid": "qhHtFyCnk",
+  "version": 26,
+  "weekStart": ""
+}
