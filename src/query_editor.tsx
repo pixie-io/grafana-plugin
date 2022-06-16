@@ -118,7 +118,6 @@ export class QueryEditor extends PureComponent<Props> {
           onValueChange={this.onPxlScriptChange.bind(this)}
           textareaId="code-area"
           onKeyDown={(e) => {
-            console.log(e);
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
               const { onRunQuery } = this.props;
               onRunQuery();
