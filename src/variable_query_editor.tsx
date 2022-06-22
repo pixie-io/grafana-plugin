@@ -19,8 +19,8 @@
 import { SelectableValue } from '@grafana/data';
 import { Select, Input, Button } from '@grafana/ui';
 import React, { useState } from 'react';
-import { clusterVariableName, PixieVariableQuery, QueryType } from 'types';
 
+import { CLUSTER_VARIABLE_NAME, PixieVariableQuery, QueryType } from './types';
 import './styles.css';
 
 //Specifies what properties the VariableQueryEditor receives in constructor
@@ -30,15 +30,15 @@ interface VariableQueryProps {
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) => {
   const valueOptions: Array<SelectableValue<QueryType>> = [
-    { label: 'Clusters', value: 'get-clusters' as const },
-    { label: 'Pods', value: 'get-pods' as const },
-    { label: 'Services', value: 'get-services' as const },
-    { label: 'Namespaces', value: 'get-namespaces' as const },
-    { label: 'Node', value: 'get-nodes' as const },
+    { label: 'Clusters', value: QueryType.GetClusters },
+    { label: 'Pods', value: QueryType.GetPods },
+    { label: 'Services', value: QueryType.GetServices },
+    { label: 'Namespaces', value: QueryType.GetNamespaces },
+    { label: 'Node', value: QueryType.GetNodes },
   ];
 
   let [currentValue, setCurrentValue] = useState(valueOptions[0]);
-  let [clusterID, setClusterID] = useState(`\$${clusterVariableName}`);
+  let [clusterID, setClusterID] = useState(`\$${CLUSTER_VARIABLE_NAME}`);
 
   const onSubmit = () => {
     let query: PixieVariableQuery = { queryType: currentValue.value! };

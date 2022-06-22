@@ -96,6 +96,35 @@ const (
 	GetNodes      QueryType = "get-nodes"
 )
 
+const (
+	getPodsScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.pod = df.ctx['pod_name']
+df = df[['pod']]
+px.display(df)
+`
+	getServicesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.service = df.ctx['service']
+df = df[df.service != '']
+df = df.groupby('service').agg()
+px.display(df)
+`
+	getNamespacesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.namespace = df.ctx['namespace']
+px.display(df.groupby('namespace').agg())
+`
+	getNodesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.node = df.ctx['node_name']
+px.display(df.groupby('node').agg())`
+)
+
 type queryBody struct {
 	// The body of a pxl script
 	PxlScript string
@@ -142,17 +171,13 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	case GetClusters:
 		return qp.queryClusters(ctx)
 	case GetPods:
-		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.pod = df.ctx['pod_name']\ndf = df[['pod']]\npx.display(df)"
-		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+		return qp.queryScript(ctx, getPodsScript, query, clusterID)
 	case GetServices:
-		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.service = df.ctx['service']\ndf = df[df.service != '']\ndf = df.groupby('service').agg()\npx.display(df)"
-		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+		return qp.queryScript(ctx, getServicesScript, query, clusterID)
 	case GetNamespaces:
-		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.namespace = df.ctx['namespace']\npx.display(df.groupby('namespace').agg())"
-		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+		return qp.queryScript(ctx, getNamespacesScript, query, clusterID)
 	case GetNodes:
-		podPxlScript := "import px\ndf = px.DataFrame(table='process_stats', start_time=__time_from)\ndf.node = df.ctx['node_name']\npx.display(df.groupby('node').agg())"
-		return qp.queryScript(ctx, podPxlScript, query, clusterID)
+		return qp.queryScript(ctx, getNodesScript, query, clusterID)
 	default:
 		return nil, fmt.Errorf("unknown query type: %v", qm.QueryType)
 	}

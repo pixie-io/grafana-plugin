@@ -25,7 +25,13 @@ import {
   VariableModel,
 } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery, clusterVariableName } from './types';
+import {
+  PixieDataSourceOptions,
+  PixieDataQuery,
+  PixieVariableQuery,
+  CLUSTER_VARIABLE_NAME as CLUSTER_VARIABLE_NAME,
+  QueryType,
+} from './types';
 import { getColumnsScript } from './column_filtering';
 
 const timeVars = [
@@ -53,7 +59,9 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
 
     // find cluster variable and convert it to any since the variable value field is not exposed
-    const pixieClusterIdVariable = dashboardVariables.find((variable) => variable.name === clusterVariableName) as any;
+    const pixieClusterIdVariable = dashboardVariables.find(
+      (variable) => variable.name === CLUSTER_VARIABLE_NAME
+    ) as any;
     return pixieClusterIdVariable?.current?.value ?? '';
   }
 
@@ -149,7 +157,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       //check if the value is in array form
       if (values[0].includes(',')) {
         //expand and clean values
-        values = values[0].split(',').map((str) => str.replaceAll('"', '').replaceAll('[', '').replaceAll(']', ''));
+        values = JSON.parse(values[0]);
       }
       return values.map((value) => ({
         // if textField undefined use value for the text label
@@ -165,7 +173,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
-    if (query.queryType !== 'get-clusters' && query.queryBody?.clusterID === `\$${clusterVariableName}`) {
+    if (query.queryType !== 'get-clusters' && query.queryBody?.clusterID === `\$${CLUSTER_VARIABLE_NAME}`) {
       const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterID, options.scopedVars);
       query = { ...query, queryBody: { clusterID: interpolatedClusterId } };
     }
@@ -178,18 +186,18 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const flatData: ClusterMeta[] = this.zipGrafanaDataFrame(frame);
 
     switch (query.queryType) {
-      case 'get-clusters':
+      case QueryType.GetClusters:
         return this.convertData(flatData, 'name', 'id');
-      case 'get-pods':
+      case QueryType.GetPods:
         return this.convertData(flatData, undefined, 'pod');
-      case 'get-services':
+      case QueryType.GetServices:
         return this.convertData(flatData, undefined, 'service');
-      case 'get-namespaces':
+      case QueryType.GetNamespaces:
         return this.convertData(flatData, undefined, 'namespace');
-      case 'get-nodes':
+      case QueryType.GetNodes:
         return this.convertData(flatData, undefined, 'node');
       default:
-        return Promise.resolve([]);
+        throw new Error(`Unhandled query type: ${query.queryType}`);
     }
   }
 }

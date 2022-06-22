@@ -17,10 +17,20 @@
  */
 
 import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
-import { scriptOptions } from 'pxl_scripts';
+import { scriptOptions } from './pxl_scripts';
 
 // Types of available queries to the backend
-export type QueryType = 'run-script' | 'get-clusters' | 'get-pods' | 'get-services' | 'get-namespaces' | 'get-nodes';
+export const enum QueryType {
+  RunScript = 'run-script',
+  GetClusters = 'get-clusters',
+  GetPods = 'get-pods',
+  GetServices = 'get-services',
+  GetNamespaces = 'get-namespaces',
+  GetNodes = 'get-nodes',
+}
+
+// predefined global dashboard variable name for cluster variable
+export const CLUSTER_VARIABLE_NAME = 'pixieCluster';
 
 // Describes variable query to be sent to the backend.
 export interface PixieVariableQuery {
@@ -48,7 +58,7 @@ export interface PixieDataQuery extends DataQuery {
 }
 
 export const defaultQuery: Partial<PixieDataQuery> = {
-  queryType: 'run-script' as const,
+  queryType: QueryType.RunScript,
   queryBody: {
     pxlScript: scriptOptions[0].value?.script ?? '',
   },
@@ -62,6 +72,3 @@ export interface PixieSecureDataSourceOptions {
   // Address of Pixie cloud.
   cloudAddr?: string;
 }
-
-// predefined global dashboard variable name for cluster variable
-export const clusterVariableName = 'pixieCluster';
