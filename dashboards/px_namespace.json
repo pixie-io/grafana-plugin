@@ -1,423 +1,459 @@
 {
-    "annotations": {
-      "list": [
-        {
-          "builtIn": 1,
-          "datasource": {
-            "type": "grafana",
-            "uid": "-- Grafana --"
-          },
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "target": {
-            "limit": 100,
-            "matchAny": false,
-            "tags": [],
-            "type": "dashboard"
-          },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
           "type": "dashboard"
-        }
-      ]
-    },
-    "description": "",
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "id": 20,
-    "iteration": 1655420588453,
-    "links": [],
-    "liveNow": false,
-    "panels": [
-      {
-        "datasource": {
-          "type": "pixie-pixie-datasource",
-          "uid": "HaqB3H3nk"
         },
-        "gridPos": {
-          "h": 13,
-          "w": 24,
-          "x": 0,
-          "y": 0
-        },
-        "id": 2,
-        "targets": [
-          {
-            "datasource": {
-              "type": "pixie-pixie-datasource",
-              "uid": "HaqB3H3nk"
-            },
-            "queryBody": {
-              "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n\n    \ndef graphnode_sources(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    # Use Pod name for source node id and title. If pod name is not available,\n    # use service name or IP address.\n    df.source_svc_ip = px.select(df.requestor_service != '', df.requestor_service, df.requestor_ip)\n    df.id = px.select(df.requestor_pod != '', df.requestor_pod, df.source_svc_ip)\n    df.title = df.id\n    df.arc__success = 0.1\n    df.arc__failure = 0.9\n    df = df.groupby(['id', 'title']).agg()\n    \n    return df\n\n\ndef graphnode_targets(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    # Use Pod name for target node id and title. If pod name is not available,\n    # use service name or IP address.\n    df.target_svc_ip = px.select(df.responder_service != '', df.responder_service, df.responder_ip)\n    df.id = px.select(df.responder_pod != '', df.responder_pod, df.target_svc_ip)\n    df.title = df.id\n    df = df.groupby(['id', 'title']).agg()\n    \n    return df\n\n\ndef nodes(start_time: int):\n    node_sources = graphnode_sources(start_time)\n    node_targets = graphnode_targets(start_time)\n    df = node_sources.append(node_targets)\n    return df\n\n\ndef edges(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    df.source_svc_ip = px.select(df.requestor_service != '', df.requestor_service, df.requestor_ip)\n    df.source = px.select(df.requestor_pod != '', df.requestor_pod, df.source_svc_ip)\n    df.target_svc_ip = px.select(df.responder_service != '', df.responder_service, df.responder_ip)\n    df.target = px.select(df.responder_pod != '', df.responder_pod, df.target_svc_ip)\n    df.id = df.source + '-' + df.target\n    df.mainStat = df.error_rate * 100\n    df.secondaryStat = df.latency_p90 / ns_per_ms\n    return df[['id', 'source', 'target', 'mainStat', 'secondaryStat']]\n\n\nnodes_table = nodes(start_time)\nedges_table = edges(start_time)\npx.display(nodes_table, \"nodes\")\npx.display(edges_table, \"edges\")"
-            },
-            "queryType": "run-script",
-            "refId": "A"
-          }
-        ],
-        "title": "HTTP Service Map",
-        "type": "nodeGraph"
-      },
-      {
-        "datasource": {
-          "type": "pixie-pixie-datasource",
-          "uid": "HaqB3H3nk"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "custom": {
-              "align": "auto",
-              "displayMode": "auto",
-              "inspect": false
-            },
-            "decimals": 1,
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green"
-                },
-                {
-                  "color": "light-orange",
-                  "value": 150
-                },
-                {
-                  "color": "red",
-                  "value": 300
-                }
-              ]
-            }
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "pod_count"
-              },
-              "properties": [
-                {
-                  "id": "decimals"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "http_latency_p99"
-              },
-              "properties": [
-                {
-                  "id": "custom.displayMode",
-                  "value": "color-text"
-                },
-                {
-                  "id": "unit",
-                  "value": "ms"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "http_error_rate"
-              },
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "percentunit"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "http_request_throughput"
-              },
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "/s"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "inbound_http_throughput"
-              },
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "KBs"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "outbound_http_throughput"
-              },
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "KBs"
-                }
-              ]
-            }
-          ]
-        },
-        "gridPos": {
-          "h": 13,
-          "w": 24,
-          "x": 0,
-          "y": 13
-        },
-        "id": 3,
-        "options": {
-          "footer": {
-            "fields": "",
-            "reducer": [
-              "sum"
-            ],
-            "show": false
-          },
-          "showHeader": true
-        },
-        "pluginVersion": "8.5.4",
-        "targets": [
-          {
-            "datasource": {
-              "type": "pixie-pixie-datasource",
-              "uid": "HaqB3H3nk"
-            },
-            "queryBody": {
-              "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n\ndf = services_for_namespace(start_time, '$namespace')\ndf.http_latency_p99 = px.pluck_float64(df.http_latency,'p99') / px.pow(10,6)\ndf.http_request_throughput = df.http_request_throughput * px.pow(10,9)\ndf.inbound_http_throughput = df.inbound_http_throughput * px.pow(10,9) / px.pow(2, 10)\ndf.outbound_http_throughput = df.outbound_http_throughput * px.pow(10,9) / px.pow(2, 10)\n\ndf = df[['service', 'pod_count', 'http_latency_p99', 'http_request_throughput', 'http_error_rate', 'inbound_http_throughput', 'outbound_http_throughput']]\npx.display(df)"
-            },
-            "queryType": "run-script",
-            "refId": "A"
-          }
-        ],
-        "title": "Service List",
-        "type": "table"
-      },
-      {
-        "datasource": {
-          "type": "pixie-pixie-datasource",
-          "uid": "HaqB3H3nk"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "custom": {
-              "align": "auto",
-              "displayMode": "auto",
-              "inspect": false
-            },
-            "decimals": 1,
-            "mappings": [
-              {
-                "options": {
-                  "Failed": {
-                    "color": "red",
-                    "index": 5
-                  },
-                  "Pending": {
-                    "color": "yellow",
-                    "index": 6
-                  },
-                  "Running": {
-                    "color": "green",
-                    "index": 0
-                  },
-                  "Succeeded": {
-                    "color": "green",
-                    "index": 4
-                  },
-                  "Terminated": {
-                    "color": "red",
-                    "index": 3
-                  },
-                  "Unknown": {
-                    "color": "red",
-                    "index": 7
-                  },
-                  "Waiting": {
-                    "color": "yellow",
-                    "index": 8
-                  },
-                  "false": {
-                    "color": "red",
-                    "index": 2
-                  },
-                  "true": {
-                    "color": "green",
-                    "index": 1
-                  }
-                },
-                "type": "value"
-              }
-            ],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green"
-                },
-                {
-                  "color": "light-orange",
-                  "value": 150
-                },
-                {
-                  "color": "red",
-                  "value": 300
-                }
-              ]
-            },
-            "unit": "decmbytes"
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "phase"
-              },
-              "properties": [
-                {
-                  "id": "custom.width",
-                  "value": 142
-                },
-                {
-                  "id": "custom.displayMode",
-                  "value": "color-text"
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "ready"
-              },
-              "properties": [
-                {
-                  "id": "custom.width",
-                  "value": 86
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "ready"
-              },
-              "properties": [
-                {
-                  "id": "custom.displayMode",
-                  "value": "color-text"
-                }
-              ]
-            }
-          ]
-        },
-        "gridPos": {
-          "h": 15,
-          "w": 24,
-          "x": 0,
-          "y": 26
-        },
-        "id": 4,
-        "options": {
-          "footer": {
-            "fields": "",
-            "reducer": [
-              "sum"
-            ],
-            "show": false
-          },
-          "showHeader": true,
-          "sortBy": []
-        },
-        "pluginVersion": "8.5.4",
-        "targets": [
-          {
-            "datasource": {
-              "type": "pixie-pixie-datasource",
-              "uid": "HaqB3H3nk"
-            },
-            "queryBody": {
-              "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n    \noutput = pods_for_namespace(start_time, '$namespace')\noutput.rss = output.rss / px.pow(2,20)\noutput.vsize = output.vsize / px.pow(2,20)\n\noutput.phase = px.pluck(output.status, \"phase\") \noutput.ready = px.pluck(output.status, \"ready\") \n\noutput = output[['pod', 'phase', 'ready', 'rss', 'vsize', 'create_time']]\npx.display(output)"
-            },
-            "queryType": "run-script",
-            "refId": "A"
-          }
-        ],
-        "title": "Pod List",
-        "type": "table"
+        "type": "dashboard"
       }
-    ],
-    "schemaVersion": 36,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": [
+    ]
+  },
+  "description": "",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 38,
+  "iteration": 1655928512135,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
         {
           "datasource": {
             "type": "pixie-pixie-datasource",
             "uid": "HaqB3H3nk"
           },
-          "definition": "Clusters",
-          "hide": 0,
-          "includeAll": false,
-          "multi": false,
-          "name": "pixieCluster",
-          "options": [],
-          "query": {
-            "queryType": "get-clusters"
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n\n    \ndef graphnode_sources(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    # Use Pod name for source node id and title. If pod name is not available,\n    # use service name or IP address.\n    df.source_svc_ip = px.select(df.requestor_service != '', df.requestor_service, df.requestor_ip)\n    df.id = px.select(df.requestor_pod != '', df.requestor_pod, df.source_svc_ip)\n    df.title = df.id\n    df.arc__success = 0.1\n    df.arc__failure = 0.9\n    df = df.groupby(['id', 'title']).agg()\n    \n    return df\n\n\ndef graphnode_targets(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    # Use Pod name for target node id and title. If pod name is not available,\n    # use service name or IP address.\n    df.target_svc_ip = px.select(df.responder_service != '', df.responder_service, df.responder_ip)\n    df.id = px.select(df.responder_pod != '', df.responder_pod, df.target_svc_ip)\n    df.title = df.id\n    df = df.groupby(['id', 'title']).agg()\n    \n    return df\n\n\ndef nodes(start_time: int):\n    node_sources = graphnode_sources(start_time)\n    node_targets = graphnode_targets(start_time)\n    df = node_sources.append(node_targets)\n    return df\n\n\ndef edges(start_time: int):\n    df = inbound_service_let_graph(start_time, '$namespace')\n    df.source_svc_ip = px.select(df.requestor_service != '', df.requestor_service, df.requestor_ip)\n    df.source = px.select(df.requestor_pod != '', df.requestor_pod, df.source_svc_ip)\n    df.target_svc_ip = px.select(df.responder_service != '', df.responder_service, df.responder_ip)\n    df.target = px.select(df.responder_pod != '', df.responder_pod, df.target_svc_ip)\n    df.id = df.source + '-' + df.target\n    df.mainStat = df.error_rate * 100\n    df.secondaryStat = df.latency_p90 / ns_per_ms\n    return df[['id', 'source', 'target', 'mainStat', 'secondaryStat']]\n\n\nnodes_table = nodes(start_time)\nedges_table = edges(start_time)\npx.display(nodes_table, \"nodes\")\npx.display(edges_table, \"edges\")"
           },
-          "refresh": 1,
-          "regex": "",
-          "skipUrlSync": false,
-          "sort": 0,
-          "type": "query"
-        },
-        {
-          "datasource": {
-            "type": "pixie-pixie-datasource",
-            "uid": "HaqB3H3nk"
-          },
-          "definition": "Namespaces",
-          "hide": 0,
-          "includeAll": false,
-          "multi": false,
-          "name": "namespace",
-          "options": [],
-          "query": {
-            "queryBody": {
-              "clusterID": "$pixieCluster"
-            },
-            "queryType": "get-namespaces"
-          },
-          "refresh": 1,
-          "regex": "",
-          "skipUrlSync": false,
-          "sort": 0,
-          "type": "query"
+          "queryType": "run-script",
+          "refId": "A"
         }
-      ]
+      ],
+      "title": "HTTP Service Map",
+      "type": "nodeGraph"
     },
-    "time": {
-      "from": "now-15m",
-      "to": "now"
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "light-orange",
+                "value": 150
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod_count"
+            },
+            "properties": [
+              {
+                "id": "decimals"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_latency_p99"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_error_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "http_request_throughput"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "/s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "inbound_http_throughput"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "KBs"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "outbound_http_throughput"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "KBs"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "service"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": false,
+                    "title": "Service",
+                    "url": "/d/qhHtFyCnk/px-service?orgId=1&${pixieCluster:queryparam}&var-pixieService=${__data.fields.service}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 3,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n\ndf = services_for_namespace(start_time, '$namespace')\ndf.http_latency_p99 = px.pluck_float64(df.http_latency,'p99') / px.pow(10,6)\ndf.http_request_throughput = df.http_request_throughput * px.pow(10,9)\ndf.inbound_http_throughput = df.inbound_http_throughput * px.pow(10,9) / px.pow(2, 10)\ndf.outbound_http_throughput = df.outbound_http_throughput * px.pow(10,9) / px.pow(2, 10)\n\ndf = df[['service', 'pod_count', 'http_latency_p99', 'http_request_throughput', 'http_error_rate', 'inbound_http_throughput', 'outbound_http_throughput']]\npx.display(df)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Service List",
+      "type": "table"
     },
-    "timepicker": {},
-    "timezone": "",
-    "title": "px/namespace",
-    "uid": "F6XZR_j7k",
-    "version": 10,
-    "weekStart": ""
-  }
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "light-orange",
+                "value": 150
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "unit": "decmbytes"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "phase"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 142
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ready"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 86
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ready"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.pod}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 15,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 4,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Namespace Overview\n\nThis view gives a top-level summary of the pods and services in a given namespace,\nas well as a service map.\n\n'''\nimport px\n\n\n# Flag to filter out requests that come from an unresolvable IP.\nfilter_unresolved_inbound = True\n# Flag to filter out health checks from the data.\nfilter_health_checks = True\n# Flag to filter out ready checks from the data.\nfilter_ready_checks = True\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n# Whether or not to include traffic from IPs that don't resolve to a known pod/service.\ninclude_ips = True\n\n# $pixieCluster - work around for grafana to update panel on variable change\nstart_time = __time_from\n\ndef pods_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Gets a list of pods running per node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @namespace: The namespace to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.pod = df.ctx['pod_name']\n    df = df.groupby(['pod']).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n    )\n\n    df.create_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df\n\n\ndef services_for_namespace(start_time: int, namespace: px.Namespace):\n    ''' Get an overview of the services in the current cluster.\n    Args:\n    @start_time: The timestamp of data to start at.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['namespace'] == namespace]\n    df.service = df.ctx['service']\n    df = df[df.service != '']\n    df.pod = df.ctx['pod']\n    df = df.groupby(['service', 'pod']).agg()\n    df = df.groupby('service').agg(pod_count=('pod', px.count))\n    service_let = inbound_service_let_summary(start_time, namespace)\n    joined = df.merge(service_let, how='left', left_on='service', right_on='service',\n                      suffixes=['', '_x'])\n    return joined.drop('service_x')\n\n\ndef inbound_service_let_summary(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    # Filter only to inbound service traffic (server-side).\n    # Don't include traffic initiated by this service to an external location.\n    df = df[df.trace_role == 2]\n    df = df[df.service != '']\n    df.responder = df.service\n    per_ns_df = df.groupby(['timestamp', 'service']).agg(\n        http_throughput_total=('latency', px.count),\n        inbound_http_bytes_total=('req_body_size', px.sum),\n        outbound_http_bytes_total=('resp_body_size', px.sum)\n    )\n    per_ns_df.http_request_throughput = per_ns_df.http_throughput_total / window_ns\n    per_ns_df.inbound_http_throughput = per_ns_df.inbound_http_bytes_total / window_ns\n    per_ns_df.outbound_http_throughput = per_ns_df.outbound_http_bytes_total / window_ns\n    per_ns_df = per_ns_df.groupby('service').agg(\n        http_request_throughput=('http_request_throughput', px.mean),\n        inbound_http_throughput=('inbound_http_throughput', px.mean),\n        outbound_http_throughput=('outbound_http_throughput', px.mean)\n    )\n    quantiles_df = df.groupby('service').agg(\n        http_latency=('latency', px.quantiles)\n        http_error_rate=('failure', px.mean),\n    )\n    quantiles_df.http_error_rate = px.Percent(quantiles_df.http_error_rate)\n    joined = per_ns_df.merge(quantiles_df, left_on='service',\n                             right_on='service', how='inner',\n                             suffixes=['', '_x'])\n    return joined[['service', 'http_latency', 'http_request_throughput', 'http_error_rate',\n                   'inbound_http_throughput', 'outbound_http_throughput']]\n\n\ndef inbound_service_let_graph(start_time: int, namespace: px.Namespace):\n    ''' Compute a summary of traffic by requesting service, for requests on services in `namespace`.\n        Similar to `inbound_let_summary` but also breaks down by pod in addition to service.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = inbound_service_let_helper(start_time, namespace)\n    df = df.groupby(['timestamp', 'service', 'remote_addr', 'pod', 'trace_role']).agg(\n        latency_quantiles=('latency', px.quantiles),\n        error_rate=('failure', px.mean),\n        throughput_total=('latency', px.count),\n        inbound_bytes_total=('req_body_size', px.sum),\n        outbound_bytes_total=('resp_body_size', px.sum)\n    )\n\n    # Get the traced and remote pod/service/IP information.\n    df.traced_pod = df.pod\n    df.traced_service = df.service\n    df.traced_ip = px.pod_name_to_pod_ip(df.pod)\n    df.remote_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.remote_service = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))\n    df.remote_ip = df.remote_addr\n    # If external IPs are excluded in the service graph, then we also exclude any\n    # traffic where we don't know the remote pod or remote service name.\n    df = df[include_ips or (df.remote_pod != '' or df.remote_service != '')]\n\n    # Associate it with Client/Server roles, based on the trace role.\n    df.is_server_side_tracing = df.trace_role == 2\n    df.responder_pod = px.select(df.is_server_side_tracing, df.traced_pod, df.remote_pod)\n    df.requestor_pod = px.select(df.is_server_side_tracing, df.remote_pod, df.traced_pod)\n    df.responder_service = px.select(df.is_server_side_tracing, df.traced_service, df.remote_service)\n    df.requestor_service = px.select(df.is_server_side_tracing, df.remote_service, df.traced_service)\n    df.responder_ip = px.select(df.is_server_side_tracing, df.traced_ip, df.remote_ip)\n    df.requestor_ip = px.select(df.is_server_side_tracing, df.remote_ip, df.traced_ip)\n\n    # Compute statistics about each edge of the service graph.\n    df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))\n    df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))\n    df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))\n    df.request_throughput = df.throughput_total / window_ns\n    df.inbound_throughput = df.inbound_bytes_total / window_ns\n    df.outbound_throughput = df.outbound_bytes_total / window_ns\n    df.error_rate = px.Percent(df.error_rate)\n    return df.groupby(['responder_pod', 'requestor_pod', 'responder_service',\n                       'requestor_service', 'responder_ip', 'requestor_ip']).agg(\n        latency_p50=('latency_p50', px.mean),\n        latency_p90=('latency_p90', px.mean),\n        latency_p99=('latency_p99', px.mean),\n        request_throughput=('request_throughput', px.mean),\n        error_rate=('error_rate', px.mean),\n        inbound_throughput=('inbound_throughput', px.mean),\n        outbound_throughput=('outbound_throughput', px.mean),\n        throughput_total=('throughput_total', px.sum)\n    )\n\n\ndef inbound_service_let_helper(start_time: int, namespace: px.Namespace):\n    ''' Compute the let as a timeseries for requests received or by services in `namespace`.\n\n    Args:\n    @start_time: The timestamp of data to start at.\n    @namespace: The namespace to filter on.\n\n    '''\n    df = px.DataFrame(table='http_events', start_time=start_time)\n    df.service = df.ctx['service']\n    df.pod = df.ctx['pod_name']\n    df = df[df.ctx['namespace'] == namespace]\n    df = df[df.pod != '']\n    df.latency = df.latency\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    df.failure = df.resp_status >= 400\n    filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (\n        df.req_path != '/readyz' or not filter_ready_checks)) and (\n        df['remote_addr'] != '-' or not filter_unresolved_inbound)\n\n    df = df[filter_out_conds]\n    return df\n    \noutput = pods_for_namespace(start_time, '$namespace')\noutput.rss = output.rss / px.pow(2,20)\noutput.vsize = output.vsize / px.pow(2,20)\n\noutput.phase = px.pluck(output.status, \"phase\") \noutput.ready = px.pluck(output.status, \"ready\") \n\noutput = output[['pod', 'phase', 'ready', 'rss', 'vsize', 'create_time']]\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod List",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Clusters",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "pixieCluster",
+        "options": [],
+        "query": {
+          "queryType": "get-clusters"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Namespaces",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "namespace",
+        "options": [],
+        "query": {
+          "queryBody": {
+            "clusterID": "$pixieCluster"
+          },
+          "queryType": "get-namespaces"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "px/namespace",
+  "uid": "F6XZR_j7k",
+  "version": 5,
+  "weekStart": ""
+}

@@ -24,8 +24,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
-  "iteration": 1655420245946,
+  "id": 36,
+  "iteration": 1655928300632,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -97,6 +97,15 @@
               {
                 "id": "custom.width",
                 "value": 402
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/tcpoz_jnz/px-node?orgId=1&${pixieCluster:queryparam}&var-node=${__data.fields.node}&var-groupby=node"
+                  }
+                ]
               }
             ]
           },
@@ -193,6 +202,15 @@
               {
                 "id": "custom.width",
                 "value": 188
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/F6XZR_j7k/px-namespace?orgId=1&${pixieCluster:queryparam}&var-namespace=${__data.fields.namespace}"
+                  }
+                ]
               }
             ]
           },
@@ -311,6 +329,15 @@
               {
                 "id": "custom.width",
                 "value": 296
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/qhHtFyCnk/px-service?orgId=1&${pixieCluster:queryparam}&var-pixieService=${__data.fields.service}"
+                  }
+                ]
               }
             ]
           },
@@ -484,7 +511,49 @@
             "inspect": false
           },
           "decimals": 1,
-          "mappings": [],
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -508,6 +577,15 @@
               {
                 "id": "custom.width",
                 "value": 378
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.pod}"
+                  }
+                ]
               }
             ]
           },
@@ -524,20 +602,6 @@
               {
                 "id": "custom.displayMode",
                 "value": "color-text"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "options": {
-                      "false": {
-                        "color": "red",
-                        "index": 0
-                      }
-                    },
-                    "type": "value"
-                  }
-                ]
               }
             ]
           },
@@ -547,6 +611,10 @@
               "options": "phase"
             },
             "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              },
               {
                 "id": "custom.width",
                 "value": 73
@@ -566,18 +634,6 @@
               {
                 "id": "unit",
                 "value": "percentunit"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "total_disk_read_throughput_kb_sec"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 263
               }
             ]
           },
@@ -617,6 +673,23 @@
               {
                 "id": "unit",
                 "value": "KBs"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/tcpoz_jnz/px-node?orgId=1&${pixieCluster:queryparam}&var-node=${__data.fields.node}&var-groupby=node"
+                  }
+                ]
               }
             ]
           }
@@ -693,6 +766,6 @@
   "timezone": "",
   "title": "px/cluster",
   "uid": "JMSOCJj7k",
-  "version": 54,
+  "version": 9,
   "weekStart": ""
 }

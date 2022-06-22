@@ -24,8 +24,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 6,
-  "iteration": 1655420415419,
+  "id": 37,
+  "iteration": 1655928408807,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -49,7 +49,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -79,7 +80,8 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green"
+                      "color": "green",
+                      "value": null
                     },
                     {
                       "color": "light-orange",
@@ -126,7 +128,8 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green"
+                      "color": "green",
+                      "value": null
                     },
                     {
                       "color": "red",
@@ -150,6 +153,40 @@
               {
                 "id": "decimals",
                 "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.source}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "destination"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.destination}"
+                  }
+                ]
               }
             ]
           }
@@ -291,6 +328,6 @@
   "timezone": "",
   "title": "px/http_data",
   "uid": "HDxrIyjnz",
-  "version": 14,
+  "version": 2,
   "weekStart": ""
 }

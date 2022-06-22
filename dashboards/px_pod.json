@@ -24,8 +24,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
-  "iteration": 1655420787408,
+  "id": 40,
+  "iteration": 1655928720708,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -482,7 +482,7 @@
                       }
                     },
                     "type": "value"
-                  } 
+                  }
                 ]
               }
             ]
@@ -507,7 +507,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 69
+                "value": 102
               }
             ]
           },
@@ -1199,6 +1199,40 @@
                 "value": 1
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requesting_pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.requesting_pod}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requesting_svc"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/qhHtFyCnk/px-service?orgId=1&${pixieCluster:queryparam}&var-pixieService=${__data.fields.requesting_svc}"
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -1328,6 +1362,40 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/tcpoz_jnz/px-node?orgId=1&${pixieCluster:queryparam}&var-node=${__data.fields.node}&var-groupby=node"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "service"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/qhHtFyCnk/px-service?orgId=1&${pixieCluster:queryparam}&var-pixieService=${__data.fields.service}"
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -1424,6 +1492,6 @@
   "timezone": "",
   "title": "px/pod",
   "uid": "_t3foxCnz",
-  "version": 61,
+  "version": 4,
   "weekStart": ""
 }

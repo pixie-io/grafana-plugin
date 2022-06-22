@@ -24,8 +24,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 8,
-  "iteration": 1655420957845,
+  "id": 39,
+  "iteration": 1655928892900,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -478,7 +478,7 @@
                       }
                     },
                     "type": "value"
-                  } 
+                  }
                 ]
               }
             ]
@@ -492,6 +492,23 @@
               {
                 "id": "custom.width",
                 "value": 214
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.pod}"
+                  }
+                ]
               }
             ]
           }
@@ -607,6 +624,40 @@
                     }
                   ]
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requesting_pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.requesting_pod}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requesting_svc"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/qhHtFyCnk/px-service?orgId=1&${pixieCluster:queryparam}﻿&var-pixieService=﻿${__data.fields.requesting_svc}"
+                  }
+                ]
               }
             ]
           }
@@ -741,11 +792,28 @@
                       "value": 300
                     },
                     {
-                      "color": "dark-red",
+                      "color": "red",
                       "value": 400
                     }
                   ]
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.pod}"
+                  }
+                ]
               }
             ]
           }
@@ -850,6 +918,6 @@
   "timezone": "",
   "title": "px/service",
   "uid": "qhHtFyCnk",
-  "version": 26,
+  "version": 7,
   "weekStart": ""
 }
