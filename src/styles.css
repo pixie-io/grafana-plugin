@@ -1,8 +1,10 @@
+/* General */
 .m-2 {
     margin-left: 5px;
     margin-right: 5px;
 }
 
+/* Code Editor */
 .code-editor {
     counter-reset: line;
   }

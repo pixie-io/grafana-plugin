@@ -16,9 +16,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DataFrame, DataSourceInstanceSettings, ScopedVars, toDataFrame, VariableModel } from '@grafana/data';
-import { BackendSrv, DataSourceWithBackend, FetchResponse, getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { PixieDataSourceOptions, PixieDataQuery, PixieVariableQuery } from './types';
+import {
+  DataFrame,
+  DataSourceInstanceSettings,
+  MetricFindValue,
+  ScopedVars,
+  toDataFrame,
+  VariableModel,
+} from '@grafana/data';
+import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
+import {
+  PixieDataSourceOptions,
+  PixieDataQuery,
+  PixieVariableQuery,
+  CLUSTER_VARIABLE_NAME as CLUSTER_VARIABLE_NAME,
+  QueryType,
+  checkExhaustive,
+} from './types';
 import { getColumnsScript } from './column_filtering';
 
 const timeVars = [
@@ -42,6 +56,16 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     this.backendSrv = getBackendSrv();
   }
 
+  getClusterId(): string {
+    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
+
+    // find cluster variable and convert it to any since the variable value field is not exposed
+    const pixieClusterIdVariable = dashboardVariables.find(
+      (variable) => variable.name === CLUSTER_VARIABLE_NAME
+    ) as any;
+    return pixieClusterIdVariable?.current?.value ?? '';
+  }
+
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
     let pxlScript = query.queryBody?.pxlScript ?? '';
 
@@ -58,16 +82,11 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       );
     }
 
-    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
-
-    // find cluster variable and convert it to any since the variable value field is not exposed
-    const pixieClusterID = dashboardVariables.find((variable) => variable.name === 'pixieCluster') as any;
-
     return {
       ...query,
       queryBody: {
         ...query.queryBody,
-        clusterID: pixieClusterID?.current?.value ?? '',
+        clusterID: this.getClusterId(),
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
               ...scopedVars,
@@ -81,12 +100,12 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const refId = options?.variable?.name ?? 'tempvar';
 
     const interpolatedQuery = {
+      ...query,
       refId,
       datasource: {
         type: this.type,
         uid: this.uid,
       },
-      queryType: query.queryType,
     };
 
     options = {
@@ -124,21 +143,64 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     return zipped;
   }
 
-  async metricFindQuery(query: PixieVariableQuery, options?: any) {
+  /**
+   * Converts zipped output into dashboard ingestible data.
+   *
+   * @param data zipped data
+   * @param textField field to use for dashboard variable name.
+   * Set to `undefined` if textField should be the same as valueField in the output.
+   *
+   * @param valueField field to use for dashboard variable value
+   */
+  convertData(data: any[], textField: string | undefined, valueField: string): MetricFindValue[] {
+    const output = data.flatMap((entry: any) => {
+      let values: string[] = [entry[valueField] as string];
+      //check if the value is in array form
+      if (values[0].includes(',')) {
+        //expand and clean values
+        values = JSON.parse(values[0]);
+      }
+      return values.map((value) => ({
+        // if textField undefined use value for the text label
+        text: textField ? entry[textField] : value,
+        value: value,
+      }));
+    });
+    return output;
+  }
+
+  async metricFindQuery(query: PixieVariableQuery, options?: any): Promise<MetricFindValue[]> {
     const variableName: string = options.variable.name;
-    //Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
+    //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
+    if (query.queryType !== 'get-clusters' && query.queryBody?.clusterID === `\$${CLUSTER_VARIABLE_NAME}`) {
+      const interpolatedClusterId = getTemplateSrv().replace(query.queryBody?.clusterID, options.scopedVars);
+      query = { ...query, queryBody: { clusterID: interpolatedClusterId } };
+    }
     // Fetch variables from the backend
     const response = await this.fetchMetricNames(query, options);
     //Convert the response to a DataFrame
-    const vizierFrame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
-    //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
-    const clusterData: ClusterMeta[] = this.zipGrafanaDataFrame(vizierFrame);
+    const frame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
 
-    return clusterData.map((entry) => ({
-      text: entry.name,
-      value: entry.id,
-    }));
+    //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
+    const flatData: ClusterMeta[] = this.zipGrafanaDataFrame(frame);
+
+    switch (query.queryType) {
+      case QueryType.GetClusters:
+        return this.convertData(flatData, 'name', 'id');
+      case QueryType.GetPods:
+        return this.convertData(flatData, undefined, 'pod');
+      case QueryType.GetServices:
+        return this.convertData(flatData, undefined, 'service');
+      case QueryType.GetNamespaces:
+        return this.convertData(flatData, undefined, 'namespace');
+      case QueryType.GetNodes:
+        return this.convertData(flatData, undefined, 'node');
+      case QueryType.RunScript:
+        return Promise.resolve([]);
+      default:
+        checkExhaustive(query.queryType);
+    }
   }
 }
