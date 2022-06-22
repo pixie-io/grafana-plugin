@@ -101,7 +101,8 @@ const (
 import px
 df = px.DataFrame(table='process_stats', start_time=__time_from)
 df.pod = df.ctx['pod_name']
-df = df[['pod']]
+df = df[df.pod != '']
+df = df.groupby('pod').agg()
 px.display(df)
 `
 	getServicesScript string = `
@@ -116,13 +117,16 @@ px.display(df)
 import px
 df = px.DataFrame(table='process_stats', start_time=__time_from)
 df.namespace = df.ctx['namespace']
+df = df[df.namespace != '']
 px.display(df.groupby('namespace').agg())
 `
 	getNodesScript string = `
 import px
 df = px.DataFrame(table='process_stats', start_time=__time_from)
 df.node = df.ctx['node_name']
-px.display(df.groupby('node').agg())`
+df = df[df.node != '']
+px.display(df.groupby('node').agg())
+`
 )
 
 type queryBody struct {
@@ -160,7 +164,7 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	}
 
 	if qm.QueryType != GetClusters && len(qm.QueryBody.ClusterID) == 0 {
-		return nil, fmt.Errorf("no clusterID present in the request")
+		return nil, fmt.Errorf("no clusterID present in the request. Please set `pixieCluster` dashboard variable to `Pixie Datasource`->`Clusters`")
 	}
 
 	clusterID := qm.QueryBody.ClusterID
