@@ -72,3 +72,7 @@ export interface PixieSecureDataSourceOptions {
   // Address of Pixie cloud.
   cloudAddr?: string;
 }
+
+export function checkExhaustive(val: never): never {
+  throw new Error(`Unexpected value: ${JSON.stringify(val)}`);
+}

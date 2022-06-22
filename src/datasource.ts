@@ -31,6 +31,7 @@ import {
   PixieVariableQuery,
   CLUSTER_VARIABLE_NAME as CLUSTER_VARIABLE_NAME,
   QueryType,
+  checkExhaustive,
 } from './types';
 import { getColumnsScript } from './column_filtering';
 
@@ -196,8 +197,10 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
         return this.convertData(flatData, undefined, 'namespace');
       case QueryType.GetNodes:
         return this.convertData(flatData, undefined, 'node');
+      case QueryType.RunScript:
+        return Promise.resolve([]);
       default:
-        throw new Error(`Unhandled query type: ${query.queryType}`);
+        checkExhaustive(query.queryType);
     }
   }
 }
