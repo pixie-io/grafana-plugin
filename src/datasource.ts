@@ -34,6 +34,7 @@ import {
   checkExhaustive,
 } from './types';
 import { getColumnsScript } from './column_filtering';
+import { getGroupByScript } from './groupby';
 
 const timeVars = [
   ['$__from', '__time_from'],
@@ -74,12 +75,26 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       pxlScript = pxlScript.replaceAll(changeFrom, changeTo);
     }
 
-    // Replace $__columns with columns selected to filter
-    if (query.queryMeta && query.queryMeta.isTabular) {
+    // Replace $__columns with columns selected to filter or all columns in script
+    if (query.queryMeta?.isColFiltering) {
       pxlScript = pxlScript.replace(
         columnsVar,
-        getColumnsScript(query.queryMeta.selectedColumns!, query.queryMeta.columnOptions!)
+        getColumnsScript(query.queryMeta.selectedColFilter!, query.queryMeta.columnOptions!)
       );
+    }
+
+    // Modifies px.display to display a script that groups by selected columns
+    if (query.queryMeta?.isGroupBy) {
+      pxlScript = pxlScript.replace(
+        columnsVar,
+        query.queryMeta.columnOptions!.map((columnName) => `'${columnName.label}'`).join()
+      );
+
+      if (query.queryMeta.selectedColGroupby) {
+        pxlScript =
+          pxlScript.substring(0, pxlScript.lastIndexOf('px.display')) +
+          getGroupByScript(query.queryMeta.selectedColGroupby!, query.queryMeta.aggData!);
+      }
     }
 
     return {
@@ -171,7 +186,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
 
   async metricFindQuery(query: PixieVariableQuery, options?: any): Promise<MetricFindValue[]> {
     const variableName: string = options.variable.name;
-    //Make sure the query is not empty. Variable query editor will send empty query if user haven't clicked on dropdown menu
+    // Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
     if (query.queryType !== 'get-clusters' && query.queryBody?.clusterID === `\$${CLUSTER_VARIABLE_NAME}`) {
