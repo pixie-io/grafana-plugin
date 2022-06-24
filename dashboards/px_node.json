@@ -1,0 +1,1227 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 41,
+  "iteration": 1655928645718,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "phase"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ready"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-text"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_time"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pod"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "",
+                    "url": "/d/_t3foxCnz/px-pod?orgId=1&${pixieCluster:queryparam}&var-pixiePod=${__data.fields.pod}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = pods_for_node(start_time, node)\noutput.phase = px.pluck(output.status, \"phase\") \noutput.ready = px.pluck(output.status, \"ready\") \n\n\noutput = output[['pod', 'phase', 'ready', 'start_time', 'containers']]\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Pods",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "CPU Usage",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = resource_timeseries(start_time, node, '$groupby')\n#output.phase = px.pluck(output.status, \"phase\") \n#output.ready = px.pluck(output.status, \"ready\") \noutput = output[['time_', 'cpu_usage','groupby_col']]\n\n#output = output[['pod', 'phase', 'ready', 'start_time', 'containers']]\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes Read",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "KBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = resource_timeseries(start_time, node, '$groupby')\n#output.phase = px.pluck(output.status, \"phase\") \n#output.ready = px.pluck(output.status, \"ready\") \noutput.bytes_read = output.total_disk_read_throughput * px.pow(10,9) / px.pow(2,10)\noutput = output[['time_', 'bytes_read','groupby_col']]\n\n#output = output[['pod', 'phase', 'ready', 'start_time', 'containers']]\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Bytes Read",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes Written",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "KBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 8,
+        "y": 13
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = resource_timeseries(start_time, node, '$groupby')\n#output.phase = px.pluck(output.status, \"phase\") \n#output.ready = px.pluck(output.status, \"ready\") \noutput.bytes_written = output.total_disk_write_throughput * px.pow(10,9) / px.pow(2,10)\noutput = output[['time_', 'bytes_written','groupby_col']]\n\n#output = output[['pod', 'phase', 'ready', 'start_time', 'containers']]\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Bytes Written",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes Read",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "KBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = network_stats(start_time, node, '$groupby')\noutput.sent_data = output.tx_bytes_per_ns * px.pow(10,9) / px.pow(2,10)\noutput = output[['time_', 'sent_data','groupby_col']]\n\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Bytes Read",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Received Data",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "KBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 0,
+        "y": 25
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = network_stats(start_time, node, '$groupby')\noutput.received_data = output.rx_bytes_per_ns * px.pow(10,9) / px.pow(2,10)\noutput = output[['time_', 'received_data','groupby_col']]\n\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Received Network Traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Resident Memory Usage",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "deckbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 8,
+        "y": 25
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = resource_timeseries(start_time, node, '$groupby')\noutput.rss = output.rss / px.pow(2,10)\noutput = output[['time_', 'rss','groupby_col']]\n\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Resident Set Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "pixie-pixie-datasource",
+        "uid": "HaqB3H3nk"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Virtual Memory Usage",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "Failed": {
+                  "color": "red",
+                  "index": 5
+                },
+                "Pending": {
+                  "color": "yellow",
+                  "index": 6
+                },
+                "Running": {
+                  "color": "green",
+                  "index": 0
+                },
+                "Succeeded": {
+                  "color": "green",
+                  "index": 4
+                },
+                "Terminated": {
+                  "color": "red",
+                  "index": 3
+                },
+                "Unknown": {
+                  "color": "red",
+                  "index": 7
+                },
+                "Waiting": {
+                  "color": "yellow",
+                  "index": 8
+                },
+                "false": {
+                  "color": "red",
+                  "index": 2
+                },
+                "true": {
+                  "color": "green",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "deckbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 25
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "pixie-pixie-datasource",
+            "uid": "HaqB3H3nk"
+          },
+          "queryBody": {
+            "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' Node Overview\n\nThis view summarizes the process and network stats for a given input node in a cluster.\nIt computes CPU, memory consumption, as well as network traffic statistics.\nIt also displays a list of pods that were on that node during the time window.\n\n'''\nimport px\n\nns_per_ms = 1000 * 1000\nns_per_s = 1000 * ns_per_ms\n# Window size to use on time_ column for bucketing.\nwindow_ns = px.DurationNanos(10 * ns_per_s)\n\n# $pixieCluster - work around for grafana to update panel on variable change\nnode = '$node'\nstart_time = __time_from\n\ndef pods_for_node(start_time: int, node: px.Node):\n    ''' Gets a list of pods running on the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df.pod = df.ctx['pod_name']\n    df.container = df.ctx['container_name']\n    df = df.groupby(['pod', 'container']).agg()\n    df = df.groupby('pod').agg(containers=('container', px.count))\n    df.start_time = px.pod_name_to_start_time(df.pod)\n    df.status = px.pod_name_to_status(df.pod)\n    return df[['pod', 'start_time', 'containers', 'status']]\n\n\ndef resource_timeseries(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the windowed process stats (CPU, memory, etc) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='process_stats', start_time=start_time)\n    df = df[df.ctx['node_name'] == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate CPU usage by process (UPID) in each k8s_object\n    # over all windows.\n    df = df.groupby(['upid', 'timestamp', groupby]).agg(\n        rss=('rss_bytes', px.mean),\n        vsize=('vsize_bytes', px.mean),\n        # The fields below are counters, so we take the min and the max to subtract them.\n        cpu_utime_ns_max=('cpu_utime_ns', px.max),\n        cpu_utime_ns_min=('cpu_utime_ns', px.min),\n        cpu_ktime_ns_max=('cpu_ktime_ns', px.max),\n        cpu_ktime_ns_min=('cpu_ktime_ns', px.min),\n        read_bytes_max=('read_bytes', px.max),\n        read_bytes_min=('read_bytes', px.min),\n        write_bytes_max=('write_bytes', px.max),\n        write_bytes_min=('write_bytes', px.min),\n        rchar_bytes_max=('rchar_bytes', px.max),\n        rchar_bytes_min=('rchar_bytes', px.min),\n        wchar_bytes_max=('wchar_bytes', px.max),\n        wchar_bytes_min=('wchar_bytes', px.min),\n    )\n    # Next calculate cpu usage and memory stats per window.\n    df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min\n    df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min\n    df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns\n    df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns\n    df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns\n    df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns\n\n    # Then aggregate process individual process metrics.\n    df = df.groupby(['timestamp', groupby]).agg(\n        cpu_ktime_ns=('cpu_ktime_ns', px.sum),\n        cpu_utime_ns=('cpu_utime_ns', px.sum),\n        actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),\n        actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),\n        total_disk_read_throughput=('total_disk_read_throughput', px.sum),\n        total_disk_write_throughput=('total_disk_write_throughput', px.sum),\n        rss=('rss', px.sum),\n        vsize=('vsize', px.sum),\n    )\n\n    # Finally, calculate total (kernel + user time)  percentage used over window.\n    df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)\n    df['time_'] = df['timestamp']\n    df.groupby_col = df[groupby]\n    return df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp', groupby])\n\n\ndef network_stats(start_time: int, node: px.Node, groupby: str):\n    ''' Gets the network stats (transmitted/received traffic) for the input node.\n\n    Args:\n    @start_time Starting time of the data to examine.\n    @node: The full name of the node to filter on.\n    '''\n    df = px.DataFrame(table='network_stats', start_time=start_time)\n    df = df[px.pod_id_to_node_name(df.pod_id) == node]\n    df[groupby] = df.ctx[groupby]\n    df.timestamp = px.bin(df.time_, window_ns)\n\n    # First calculate network usage by node over all windows.\n    # Data is sharded by Pod in network_stats.\n    df = df.groupby(['timestamp', 'pod_id', groupby]).agg(\n        rx_bytes_end=('rx_bytes', px.max),\n        rx_bytes_start=('rx_bytes', px.min),\n        tx_bytes_end=('tx_bytes', px.max),\n        tx_bytes_start=('tx_bytes', px.min),\n        tx_errors_end=('tx_errors', px.max),\n        tx_errors_start=('tx_errors', px.min),\n        rx_errors_end=('rx_errors', px.max),\n        rx_errors_start=('rx_errors', px.min),\n        tx_drops_end=('tx_drops', px.max),\n        tx_drops_start=('tx_drops', px.min),\n        rx_drops_end=('rx_drops', px.max),\n        rx_drops_start=('rx_drops', px.min),\n    )\n\n    # Calculate the network statistics rate over the window.\n    # We subtract the counter value at the beginning ('_start')\n    # from the value at the end ('_end').\n    df.rx_bytes_per_ns = (df.rx_bytes_end - df.rx_bytes_start) / window_ns\n    df.tx_bytes_per_ns = (df.tx_bytes_end - df.tx_bytes_start) / window_ns\n    df.rx_drops_per_ns = (df.rx_drops_end - df.rx_drops_start) / window_ns\n    df.tx_drops_per_ns = (df.tx_drops_end - df.tx_drops_start) / window_ns\n    df.rx_errors_per_ns = (df.rx_errors_end - df.rx_errors_start) / window_ns\n    df.tx_errors_per_ns = (df.tx_errors_end - df.tx_errors_start) / window_ns\n\n    # Add up the network values per node.\n    df = df.groupby(['timestamp', groupby]).agg(\n        rx_bytes_per_ns=('rx_bytes_per_ns', px.sum),\n        tx_bytes_per_ns=('tx_bytes_per_ns', px.sum),\n        rx_drop_per_ns=('rx_drops_per_ns', px.sum),\n        tx_drops_per_ns=('tx_drops_per_ns', px.sum),\n        rx_errors_per_ns=('rx_errors_per_ns', px.sum),\n        tx_errors_per_ns=('tx_errors_per_ns', px.sum),\n    )\n    df.groupby_col = df[groupby]\n    df['time_'] = df['timestamp']\n    return df.drop(['timestamp', groupby])\n\n\ndef stacktraces(start_time: int, node: str):\n    df = px.DataFrame(table='stack_traces.beta', start_time=start_time)\n\n    df.namespace = df.ctx['namespace']\n    df.pod = df.ctx['pod']\n    df.container = df.ctx['container']\n    df.cmdline = df.ctx['cmdline']\n\n    # Compute node using _exec_hostname() instead of `df.ctx['node']`\n    # We do this so it works for non-k8s processes too.\n    # This is important for determining total number of stack trace samples per node,\n    # as we need to include the non-K8s processes in the computation.\n    df.node = px.Node(px._exec_hostname())\n\n    # When computing percentages below, we want CPU percentages, not Node percentages.\n    # Since a node may have multiple CPUs, the formula is:\n    #    percentage = num_samples_symbol / (num_samples_node / num_cpus )\n    # So grab the number of CPUs and pipe it down to the percentage computation.\n    df.num_cpus = px._exec_host_num_cpus()\n\n    # Filter on the node.\n    df = df[df.node == node]\n\n    # Get stack trace totals for this node.\n    # Do this before any additional filtering.\n    node_agg = df.groupby([\"node\"]).agg(\n        count=('count', px.sum),\n        num_cpus=('num_cpus', px.any)\n    )\n\n    # Filter out non-k8s processes.\n    df = df[df.pod != '']\n\n    # Combine flamegraphs from different intervals into one larger framegraph.\n    df = df.groupby(['node', 'namespace', 'pod', 'container', 'cmdline', 'stack_trace_id']).agg(\n        stack_trace=('stack_trace', px.any),\n        count=('count', px.sum)\n    )\n\n    # Compute percentages.\n    df = df.merge(\n        node_agg,\n        how='inner',\n        left_on=\"node\",\n        right_on=\"node\",\n        suffixes=['', '_x']\n    )\n    df.percent = 100.0 * df.count * df.num_cpus / df.count_x\n    return df.drop('node_x')\n\noutput = resource_timeseries(start_time, node, '$groupby')\noutput.vsize = output.vsize / px.pow(2,10)\noutput = output[['time_', 'vsize','groupby_col']]\n\npx.display(output)"
+          },
+          "queryType": "run-script",
+          "refId": "A"
+        }
+      ],
+      "title": "Virtual Memory Size",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Clusters",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "pixieCluster",
+        "options": [],
+        "query": {
+          "queryType": "get-clusters"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "pixie-pixie-datasource",
+          "uid": "HaqB3H3nk"
+        },
+        "definition": "Node",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "node",
+        "options": [],
+        "query": {
+          "queryBody": {
+            "clusterID": "$pixieCluster"
+          },
+          "queryType": "get-nodes"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "node",
+          "value": "node"
+        },
+        "description": "",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "groupby",
+        "options": [
+          {
+            "selected": true,
+            "text": "node",
+            "value": "node"
+          },
+          {
+            "selected": false,
+            "text": "service",
+            "value": "service"
+          },
+          {
+            "selected": false,
+            "text": "pod",
+            "value": "pod"
+          },
+          {
+            "selected": false,
+            "text": "namespace",
+            "value": "namespace"
+          }
+        ],
+        "query": "node,service,pod,namespace",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "px/node",
+  "uid": "tcpoz_jnz",
+  "version": 3,
+  "weekStart": ""
+}
