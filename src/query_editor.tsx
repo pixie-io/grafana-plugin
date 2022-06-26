@@ -18,7 +18,7 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect, Button, FieldArray, Form, HorizontalGroup, IconButton } from '@grafana/ui';
+import { Select, MultiSelect, Button, HorizontalGroup, IconButton } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
@@ -30,7 +30,7 @@ import { DataSource } from './datasource';
 import { scriptOptions, Script } from './pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
 import './query_editor.css';
-import { getGroupByOptions, aggFunctionOptions } from './groupby';
+import { getGroupByOptions, aggFunctionOptions, getAggValues } from './groupby';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -147,71 +147,55 @@ export class QueryEditor extends PureComponent<Props> {
           {query.queryMeta?.isGroupBy ? (
             <>
               <MultiSelect
-                placeholder="GroupBy Columns"
+                placeholder="Groupby Columns"
                 options={getGroupByOptions(query.queryMeta.selectedColFilter!, query.queryMeta.groupByColOptions!)}
                 onChange={this.onGroupBySelect.bind(this)}
                 width={32}
               />
-
-              <Form
-                onSubmit={(values) => {
-                  //values = { aggOptions: query.queryMeta?.aggData };
-                }}
-              >
-                {({ control }) => (
-                  <FieldArray control={control} name="aggregateOptions">
-                    {({ fields, append, remove }) => (
-                      <>
-                        <div style={{ marginBottom: '1rem' }}>
-                          {fields.map((field, index) => (
-                            <HorizontalGroup key={field.id}>
-                              <Select
-                                key={index}
-                                placeholder="Aggregate Column"
-                                options={getGroupByOptions(
-                                  query.queryMeta?.selectedColFilter!,
-                                  query.queryMeta?.groupByColOptions!
-                                )}
-                                width={24}
-                                onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
-                              />{' '}
-                              <Select
-                                key={index}
-                                placeholder="Aggregate Function"
-                                options={aggFunctionOptions}
-                                width={24}
-                                onChange={(value: SelectableValue) => this.onAggFuncSelect.bind(this)(value, index)}
-                              />{' '}
-                              <IconButton
-                                name="trash-alt"
-                                size="md"
-                                iconType="default"
-                                onClick={() => {
-                                  //remove(index);
-                                  remove([index]);
-                                  this.removeAggPair(index);
-                                }}
-                              ></IconButton>
-                            </HorizontalGroup>
-                          ))}
-                          <Button
-                            style={{ marginRight: '1rem' }}
-                            onClick={() => {
-                              const { onChange, query } = this.props;
-                              let aggArray = query.queryMeta?.aggData!;
-                              aggArray.push({ aggColumn: '', aggFunction: '' });
-                              onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-                              append({});
-                            }}
-                          >
-                            Add Aggregate Pair
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </FieldArray>
-                )}
-              </Form>
+              <div style={{ marginBottom: '1rem' }}>
+                {query.queryMeta?.aggData?.map((field, index, remove) => (
+                  <HorizontalGroup key={index}>
+                    <Select
+                      key={index}
+                      placeholder="Aggregate Column"
+                      value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
+                      options={getGroupByOptions(
+                        query.queryMeta?.selectedColFilter!,
+                        query.queryMeta?.groupByColOptions!
+                      )}
+                      width={24}
+                      onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
+                    />{' '}
+                    <Select
+                      key={index}
+                      placeholder="Aggregate Function"
+                      value={getAggValues(query.queryMeta?.aggData![index].aggFunction!)}
+                      options={aggFunctionOptions}
+                      width={24}
+                      onChange={(value: SelectableValue) => this.onAggFuncSelect.bind(this)(value, index)}
+                    />{' '}
+                    <IconButton
+                      name="trash-alt"
+                      size="md"
+                      iconType="default"
+                      onClick={() => {
+                        this.removeAggPair(index);
+                      }}
+                    ></IconButton>
+                  </HorizontalGroup>
+                ))}
+                <Button
+                  style={{ marginRight: '1rem' }}
+                  onClick={() => {
+                    const { onChange, query } = this.props;
+                    let aggArray = query.queryMeta?.aggData!;
+                    aggArray.push({ aggColumn: '', aggFunction: '' });
+                    onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+                  }}
+                >
+                  Add Aggregate Pair
+                </Button>
+              </div>
             </>
           ) : (
             <></>
