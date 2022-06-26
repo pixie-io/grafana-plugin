@@ -1,5 +1,15 @@
 import { SelectableValue } from '@grafana/data';
 
+export const aggFunctionOptions: Array<{ label: string; value: number }> = [
+  { label: 'any', value: 0 },
+  { label: 'count', value: 1 },
+  { label: 'max', value: 2 },
+  { label: 'mean', value: 3 },
+  { label: 'min', value: 4 },
+  { label: 'quantiles', value: 5 },
+  { label: 'sum', value: 6 },
+];
+
 export function getGroupByOptions(
   chosenColFilterOps: Array<SelectableValue<{}>>,
   groupByColOptions: Array<{ label: string; value: number }>
@@ -41,29 +51,10 @@ export function getGroupByScript(
   return script;
 }
 
-export const aggFunctionOptions: Array<{ label: string; value: number }> = [
-  { label: 'any', value: 0 },
-  { label: 'count', value: 1 },
-  { label: 'max', value: 2 },
-  { label: 'mean', value: 3 },
-  { label: 'min', value: 4 },
-  { label: 'quantiles', value: 5 },
-  { label: 'sum', value: 6 },
-];
-
-/*
-
-                              {index + 1 === query.queryMeta?.aggData?.length ? (
-                                <IconButton
-                                  name="trash-alt"
-                                  size="md"
-                                  iconType="default"
-                                  onClick={() => {
-                                    remove(index);
-                                    this.removeAggPair(index);
-                                  }}
-                                ></IconButton>
-                              ) : (
-                                <></>
-                              )}
-*/
+export function getAggValues(name: string): {label: string; value: number} | undefined {
+  if (name === '') {
+    return undefined;
+  } else {
+    return { label: name, value: 0 };
+  }
+}
