@@ -29,7 +29,7 @@ export interface Script {
   description: string;
   script: string;
   columnNames?: string[];
-  isColFiltering?: boolean;
+  isColDisplay?: boolean;
   isGroupBy?: boolean;
   groupByColumns?: string[];
 }

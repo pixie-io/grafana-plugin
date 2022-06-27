@@ -63,7 +63,7 @@ export class QueryEditor extends PureComponent<Props> {
         queryType: QueryType.RunScript,
         queryBody: { pxlScript: option?.value.script ?? '' },
         queryMeta: {
-          isColFiltering: option.value.isColFiltering || false,
+          isColDisplay: option.value.isColDisplay || false,
           isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
           groupByColOptions: option.groupByColOptions,
@@ -77,7 +77,7 @@ export class QueryEditor extends PureComponent<Props> {
   onColSelect(chosenOptions: Array<SelectableValue<{}>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColFilter: chosenOptions } });
+      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
       onRunQuery();
     }
   }
@@ -133,7 +133,7 @@ export class QueryEditor extends PureComponent<Props> {
             onChange={this.onScriptSelect.bind(this)}
             defaultValue={scriptOptions[0]}
           />
-          {query.queryMeta?.isColFiltering ? (
+          {query.queryMeta?.isColDisplay ? (
             <MultiSelect
               placeholder="Select Columns to Display"
               options={query.queryMeta.columnOptions}
@@ -148,7 +148,7 @@ export class QueryEditor extends PureComponent<Props> {
             <>
               <MultiSelect
                 placeholder="Groupby Columns"
-                options={getGroupByOptions(query.queryMeta.selectedColFilter!, query.queryMeta.groupByColOptions!)}
+                options={getGroupByOptions(query.queryMeta.selectedColDisplay!, query.queryMeta.groupByColOptions!)}
                 onChange={this.onGroupBySelect.bind(this)}
                 width={32}
               />
@@ -160,7 +160,7 @@ export class QueryEditor extends PureComponent<Props> {
                       placeholder="Aggregate Column"
                       value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
                       options={getGroupByOptions(
-                        query.queryMeta?.selectedColFilter!,
+                        query.queryMeta?.selectedColDisplay!,
                         query.queryMeta?.groupByColOptions!
                       )}
                       width={24}
