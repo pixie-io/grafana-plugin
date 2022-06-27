@@ -34,7 +34,6 @@ const (
 	// Define keys to retrieve configs passed from UI.
 	apiKeyField    = "apiKey"
 	cloudAddrField = "cloudAddr"
-	clusterIDField = "clusterId"
 )
 
 // createPixieDatasource creates a new Pixie datasource.
@@ -89,13 +88,51 @@ func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.
 type QueryType string
 
 const (
-	RunScript   QueryType = "run-script"
-	GetClusters QueryType = "get-clusters"
+	RunScript     QueryType = "run-script"
+	GetClusters   QueryType = "get-clusters"
+	GetPods       QueryType = "get-pods"
+	GetServices   QueryType = "get-services"
+	GetNamespaces QueryType = "get-namespaces"
+	GetNodes      QueryType = "get-nodes"
+)
+
+const (
+	getPodsScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.pod = df.ctx['pod_name']
+df = df[df.pod != '']
+df = df.groupby('pod').agg()
+px.display(df)
+`
+	getServicesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.service = df.ctx['service']
+df = df[df.service != '']
+df = df.groupby('service').agg()
+px.display(df)
+`
+	getNamespacesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.namespace = df.ctx['namespace']
+df = df[df.namespace != '']
+px.display(df.groupby('namespace').agg())
+`
+	getNodesScript string = `
+import px
+df = px.DataFrame(table='process_stats', start_time=__time_from)
+df.node = df.ctx['node_name']
+df = df[df.node != '']
+px.display(df.groupby('node').agg())
+`
 )
 
 type queryBody struct {
 	// The body of a pxl script
 	PxlScript string
+	ClusterID string `json:"clusterID"`
 }
 
 type queryModel struct {
@@ -110,30 +147,43 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	config map[string]string) (*backend.DataResponse, error) {
 
 	apiToken := config[apiKeyField]
-	clusterID := config[clusterIDField]
 	cloudAddr := config[cloudAddrField]
 
 	var qm queryModel
 	if err := json.Unmarshal(query.JSON, &qm); err != nil {
-		return nil, fmt.Errorf("Error unmarshalling JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshalling JSON: %v", err)
 	}
 
 	client, err := createClient(ctx, apiToken, cloudAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating Pixie Client: %v", err)
+		return nil, fmt.Errorf("error creating Pixie Client: %v", err)
 	}
 
 	qp := PixieQueryProcessor{
 		client: client,
 	}
 
+	if qm.QueryType != GetClusters && len(qm.QueryBody.ClusterID) == 0 {
+		return nil, fmt.Errorf("no clusterID present in the request. Please set `pixieCluster` dashboard variable to `Pixie Datasource`->`Clusters`")
+	}
+
+	clusterID := qm.QueryBody.ClusterID
+
 	switch qm.QueryType {
 	case RunScript:
-		return qp.queryScript(ctx, qm.QueryBody, query, clusterID)
+		return qp.queryScript(ctx, qm.QueryBody.PxlScript, query, clusterID)
 	case GetClusters:
-		return qp.queryClusters(ctx, apiToken)
+		return qp.queryClusters(ctx)
+	case GetPods:
+		return qp.queryScript(ctx, getPodsScript, query, clusterID)
+	case GetServices:
+		return qp.queryScript(ctx, getServicesScript, query, clusterID)
+	case GetNamespaces:
+		return qp.queryScript(ctx, getNamespacesScript, query, clusterID)
+	case GetNodes:
+		return qp.queryScript(ctx, getNodesScript, query, clusterID)
 	default:
-		return nil, fmt.Errorf("Unknown query type: %v", qm.QueryType)
+		return nil, fmt.Errorf("unknown query type: %v", qm.QueryType)
 	}
 }
 
@@ -143,17 +193,10 @@ func (td *PixieDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 	message := "Connection to Pixie cluster successfully configured"
 	config := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData
 
-	client, err := createClient(ctx, config[apiKeyField], config[cloudAddrField])
+	_, err := createClient(ctx, config[apiKeyField], config[cloudAddrField])
 	if err != nil {
 		status = backend.HealthStatusError
 		message = fmt.Sprintf("Error connecting Pixie client: %s", err.Error())
-	}
-
-	vz, err := client.NewVizierClient(ctx, config[clusterIDField])
-
-	if vz == nil || err != nil {
-		status = backend.HealthStatusError
-		message = fmt.Sprintf("Error connecting to Vizier: %s", err.Error())
 	}
 
 	log.DefaultLogger.Warn(message)

@@ -24,11 +24,11 @@ import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
-import './query_editor.css';
 import { DataSource } from './datasource';
-import { scriptOptions, Script } from 'pxl_scripts';
-import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 import { getGroupByOptions, aggFunctionOptions, getAggValues } from './groupby';
+import './styles.css';
+import { scriptOptions, Script } from './pxl_scripts';
+import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -47,7 +47,7 @@ export class QueryEditor extends PureComponent<Props> {
     const { onChange, query } = this.props;
     onChange({
       ...query,
-      queryType: 'run-script' as const,
+      queryType: QueryType.RunScript,
       queryBody: { pxlScript: event },
     });
   }
@@ -58,7 +58,7 @@ export class QueryEditor extends PureComponent<Props> {
 
       onChange({
         ...query,
-        queryType: 'run-script' as const,
+        queryType: QueryType.RunScript,
         queryBody: { pxlScript: option?.value.script ?? '' },
         queryMeta: {
           isColDisplay: option.value.isColDisplay || false,
@@ -212,6 +212,13 @@ export class QueryEditor extends PureComponent<Props> {
           value={pxlScript ?? ''}
           onValueChange={this.onPxlScriptChange.bind(this)}
           textareaId="code-area"
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              const { onRunQuery } = this.props;
+              onRunQuery();
+              e.preventDefault();
+            }
+          }}
           highlight={(code) => {
             if (code !== undefined) {
               return highlight(code, languages.python, 'python')
