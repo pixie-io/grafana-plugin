@@ -75,7 +75,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       pxlScript = pxlScript.replaceAll(changeFrom, changeTo);
     }
 
-    // Replace $__columns with columns selected to filter or all columns in script
+    // Replace $__columns with selected columns to display or all columns in script
     if (query.queryMeta?.isColDisplay) {
       pxlScript = pxlScript.replace(
         columnsVar,
