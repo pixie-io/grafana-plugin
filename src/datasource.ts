@@ -52,10 +52,10 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     }
 
     // Replace $__columns with columns selected to filter or all columns in script
-    if (query.queryMeta?.isColFiltering) {
+    if (query.queryMeta?.isColDisplay) {
       pxlScript = pxlScript.replace(
         columnsVar,
-        getColumnsScript(query.queryMeta.selectedColFilter!, query.queryMeta.columnOptions!)
+        getColumnsScript(query.queryMeta.selectedColDisplay!, query.queryMeta.columnOptions!)
       );
     }
 

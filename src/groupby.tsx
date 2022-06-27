@@ -51,10 +51,12 @@ export function getGroupByScript(
   return script;
 }
 
-export function getAggValues(name: string): {label: string; value: number} | undefined {
+export function getAggValues(name: string): { label: string; value: number } | undefined {
   if (name === '') {
+      // Select value wasn't chosen so must display placeholder
     return undefined;
   } else {
+      // Placeholder should not be displayed
     return { label: name, value: 0 };
   }
 }
