@@ -89,7 +89,7 @@ export function getAggValues(name: string): { label: string; value: number } | u
 }
 
 export class GroupbyComponents extends PureComponent<Props> {
-  onGroupBySelect(chosenOptions: Array<SelectableValue<{}>>) {
+  onGroupBySelect(chosenOptions: Array<SelectableValue<{}>>): void {
     if (chosenOptions === undefined) {
       return;
     }
@@ -98,7 +98,7 @@ export class GroupbyComponents extends PureComponent<Props> {
     onRunQuery();
   }
 
-  onAggColSelect(option: SelectableValue<{}>, index: number) {
+  onAggColSelect(option: SelectableValue<{}>, index: number): void {
     if (option.value === undefined || option.label === undefined) {
       return;
     }
@@ -109,7 +109,7 @@ export class GroupbyComponents extends PureComponent<Props> {
     onRunQuery();
   }
 
-  onAggFuncSelect(option: SelectableValue<{}>, index: number) {
+  onAggFuncSelect(option: SelectableValue<{}>, index: number): void {
     if (option.value === undefined || option.label === undefined) {
       return;
     }
@@ -120,7 +120,7 @@ export class GroupbyComponents extends PureComponent<Props> {
     onRunQuery();
   }
 
-  removeAggPair(index: number) {
+  removeAggPair(index: number): void {
     const { onChange, query, onRunQuery } = this.props;
     if (index >= query.queryMeta?.aggData?.length!) {
       return;
