@@ -28,7 +28,6 @@ import './styles.css';
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from './pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
-import './query_editor.css';
 import { GroupbyComponents } from './groupby';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
