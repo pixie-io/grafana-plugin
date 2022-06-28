@@ -53,76 +53,82 @@ export function getGroupByScript(
   // Presetting script to display df before any groupby modification
   let script = 'px.display(df)';
 
-  // Update script if the user selected an option to groupby
-  if (chosenOptions.length > 0) {
-    let columns: string = chosenOptions
-      .map((columnName: { label: string; value: number }) => `'${columnName.label}'`)
-      .join();
-    script = `df = df.groupby([` + columns + `])`;
-    let aggScript = '.agg()\npx.display(df)';
-
-    // Update aggScript if the user chose any aggregate options
-    if (chosenAggPairs.length > 0) {
-      let aggPairs: string = chosenAggPairs
-        .map(
-          (aggPair: { aggColumn: string; aggFunction: string }) =>
-            `${aggPair.aggColumn}_${aggPair.aggFunction}=('${aggPair.aggColumn}',px.${aggPair.aggFunction})`
-        )
-        .join();
-      aggScript = '.agg(' + aggPairs + ')\npx.display(df)';
-    }
-    script += aggScript;
+  if (chosenOptions.length === 0) {
+    return script;
   }
-  return script;
+
+  // Update script with selected options to groupby
+  let columns: string = chosenOptions
+    .map((columnName: { label: string; value: number }) => `'${columnName.label}'`)
+    .join();
+  script = `df = df.groupby([` + columns + `])`;
+  let aggScript = '.agg()\npx.display(df)';
+
+  // Update aggScript if the user chose any aggregate options
+  if (chosenAggPairs.length > 0) {
+    let aggPairs: string = chosenAggPairs
+      .map(
+        (aggPair: { aggColumn: string; aggFunction: string }) =>
+          `${aggPair.aggColumn}_${aggPair.aggFunction}=('${aggPair.aggColumn}',px.${aggPair.aggFunction})`
+      )
+      .join();
+    aggScript = '.agg(' + aggPairs + ')\npx.display(df)';
+  }
+
+  return script + aggScript;
 }
 
 export function getAggValues(name: string): { label: string; value: number } | undefined {
+  // Select value wasn't chosen so must display placeholder
   if (name === '') {
-    // Select value wasn't chosen so must display placeholder
     return undefined;
-  } else {
-    // Placeholder should not be displayed
-    return { label: name, value: 0 };
   }
+
+  // Placeholder should not be displayed
+  return { label: name, value: 0 };
 }
 
 export class GroupbyComponents extends PureComponent<Props> {
   onGroupBySelect(chosenOptions: Array<SelectableValue<{}>>) {
-    if (chosenOptions !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColGroupby: chosenOptions } });
-      onRunQuery();
+    if (chosenOptions === undefined) {
+      return;
     }
+    const { onChange, query, onRunQuery } = this.props;
+    onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColGroupby: chosenOptions } });
+    onRunQuery();
   }
 
   onAggColSelect(option: SelectableValue<{}>, index: number) {
-    if (option.value !== undefined && option.label !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray[index].aggColumn = option.label;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
+    if (option.value === undefined || option.label === undefined) {
+      return;
     }
+    const { onChange, query, onRunQuery } = this.props;
+    let aggArray = query.queryMeta?.aggData!;
+    aggArray[index].aggColumn = option.label;
+    onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+    onRunQuery();
   }
 
   onAggFuncSelect(option: SelectableValue<{}>, index: number) {
-    if (option.value !== undefined && option.label !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray[index].aggFunction = option.label;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
+    if (option.value === undefined || option.label === undefined) {
+      return;
     }
+    const { onChange, query, onRunQuery } = this.props;
+    let aggArray = query.queryMeta?.aggData!;
+    aggArray[index].aggFunction = option.label;
+    onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+    onRunQuery();
   }
 
   removeAggPair(index: number) {
     const { onChange, query, onRunQuery } = this.props;
-    if (index < query.queryMeta?.aggData?.length!) {
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray.splice(index, 1);
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
+    if (index >= query.queryMeta?.aggData?.length!) {
+      return;
     }
+    let aggArray = query.queryMeta?.aggData!;
+    aggArray.splice(index, 1);
+    onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+    onRunQuery();
   }
 
   render() {
