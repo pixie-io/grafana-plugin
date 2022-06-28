@@ -18,19 +18,18 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect, Button, HorizontalGroup, IconButton } from '@grafana/ui';
+import { Select, MultiSelect, Button } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
-
 import './styles.css';
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from './pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
 import './query_editor.css';
-import { getGroupByOptions, aggFunctionOptions, getAggValues } from './groupby';
+import { GroupbyComponents } from './groupby';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -82,46 +81,9 @@ export class QueryEditor extends PureComponent<Props> {
     }
   }
 
-  onGroupBySelect(chosenOptions: Array<SelectableValue<{}>>) {
-    if (chosenOptions !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColGroupby: chosenOptions } });
-      onRunQuery();
-    }
-  }
-
-  onAggColSelect(option: SelectableValue<{}>, index: number) {
-    if (option.value !== undefined && option.label !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray[index].aggColumn = option.label;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
-    }
-  }
-
-  onAggFuncSelect(option: SelectableValue<{}>, index: number) {
-    if (option.value !== undefined && option.label !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray[index].aggFunction = option.label;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
-    }
-  }
-
-  removeAggPair(index: number) {
-    const { onChange, query, onRunQuery } = this.props;
-    if (index < query.queryMeta?.aggData?.length!) {
-      let aggArray = query.queryMeta?.aggData!;
-      aggArray.splice(index, 1);
-      onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-      onRunQuery();
-    }
-  }
-
   render() {
     const query = defaults(this.props.query, defaultQuery);
+    const { onChange, onRunQuery } = this.props;
     const pxlScript = query?.queryBody?.pxlScript;
 
     return (
@@ -144,62 +106,18 @@ export class QueryEditor extends PureComponent<Props> {
           ) : (
             <></>
           )}
+
           {query.queryMeta?.isGroupBy ? (
-            <>
-              <MultiSelect
-                placeholder="Groupby Columns"
-                options={getGroupByOptions(query.queryMeta.selectedColDisplay!, query.queryMeta.groupByColOptions!)}
-                onChange={this.onGroupBySelect.bind(this)}
-                width={32}
-              />
-              <div style={{ marginBottom: '1rem' }}>
-                {query.queryMeta?.aggData?.map((field, index, remove) => (
-                  <HorizontalGroup key={index}>
-                    <Select
-                      key={index}
-                      placeholder="Aggregate Column"
-                      value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
-                      options={getGroupByOptions(
-                        query.queryMeta?.selectedColDisplay!,
-                        query.queryMeta?.groupByColOptions!
-                      )}
-                      width={24}
-                      onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
-                    />{' '}
-                    <Select
-                      key={index}
-                      placeholder="Aggregate Function"
-                      value={getAggValues(query.queryMeta?.aggData![index].aggFunction!)}
-                      options={aggFunctionOptions}
-                      width={24}
-                      onChange={(value: SelectableValue) => this.onAggFuncSelect.bind(this)(value, index)}
-                    />{' '}
-                    <IconButton
-                      name="trash-alt"
-                      size="md"
-                      iconType="default"
-                      onClick={() => {
-                        this.removeAggPair(index);
-                      }}
-                    ></IconButton>
-                  </HorizontalGroup>
-                ))}
-                <Button
-                  style={{ marginRight: '1rem' }}
-                  onClick={() => {
-                    const { onChange, query } = this.props;
-                    let aggArray = query.queryMeta?.aggData!;
-                    aggArray.push({ aggColumn: '', aggFunction: '' });
-                    onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-                  }}
-                >
-                  Add Aggregate Pair
-                </Button>
-              </div>
-            </>
+            <GroupbyComponents
+              datasource={this.props.datasource}
+              query={query}
+              onRunQuery={onRunQuery}
+              onChange={onChange}
+            />
           ) : (
             <></>
           )}
+
           <Button
             style={{ marginLeft: 'auto' }}
             onClick={() => {
