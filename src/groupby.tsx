@@ -36,61 +36,46 @@ export const aggFunctionOptions: Array<{ label: string; value: number }> = [
 ];
 
 export function getGroupByOptions(
-  chosenColFilterOps: Array<SelectableValue<{}>>,
-  groupByColOptions: Array<{ label: string; value: number }>
-): Array<SelectableValue<{}>> {
+  chosenColDisplayOps: Array<SelectableValue<{ label: string; value: number }>>,
+  groupByColOptions: Array<SelectableValue<{ label: string; value: number }>>
+): Array<SelectableValue<{ label: string; value: number }>> {
   // If any display column options were chosen return those otherwise return all groupby options
-  if (chosenColFilterOps?.length > 0) {
-    return chosenColFilterOps;
+  if (chosenColDisplayOps?.length > 0) {
+    return chosenColDisplayOps;
   }
   return groupByColOptions;
 }
 
 export function getGroupByScript(
-  chosenOptions: SelectableValue<{}>,
-  chosenAggPairs: Array<{ aggColumn: string; aggFunction: string }>
+  chosenOptions: SelectableValue<{ label: string; value: number }>,
+  chosenAggPairs: Array<SelectableValue<{ aggColumn: string; aggFunction: string }>>
 ): string {
-  // Presetting script to display df before any groupby modification
-  let script = 'px.display(df)';
-
-  if (chosenOptions.length === 0) {
-    return script;
+  // Exit function if no groupby options were chosen
+  if (!chosenOptions.length) {
+    return 'px.display(df)';
   }
 
-  // Update script with selected options to groupby
-  let columns: string = chosenOptions
-    .map((columnName: { label: string; value: number }) => `'${columnName.label}'`)
-    .join();
-  script = `df = df.groupby([` + columns + `])`;
-  let aggScript = '.agg()\npx.display(df)';
+  // Make the groupby script with the column options chosen and add agg options if chosen
+  const columns = chosenOptions.map((columnName: { label: string; value: number }) => `'${columnName.label}'`);
+  const script = `df = df.groupby([${columns.join(',')}])`;
+  const aggPairs = chosenAggPairs.map(
+    ({ aggColumn, aggFunction }) => `${aggColumn}_${aggFunction}=('${aggColumn}', px.${aggFunction})`
+  );
 
-  // Update aggScript if the user chose any aggregate options
-  if (chosenAggPairs.length > 0) {
-    let aggPairs: string = chosenAggPairs
-      .map(
-        (aggPair: { aggColumn: string; aggFunction: string }) =>
-          `${aggPair.aggColumn}_${aggPair.aggFunction}=('${aggPair.aggColumn}',px.${aggPair.aggFunction})`
-      )
-      .join();
-    aggScript = '.agg(' + aggPairs + ')\npx.display(df)';
-  }
-
-  return script + aggScript;
+  return `${script}.agg(${aggPairs.join(', ')})\npx.display(df)`;
 }
 
-export function getAggValues(name: string): { label: string; value: number } | undefined {
-  // Select value wasn't chosen so must display placeholder
+export function getAggValues(name: string): { label: string; value: number } | null {
+  // If a select value wasn't chosen display the placeholder otherwise don't display placeholder
   if (name === '') {
-    return undefined;
+    return null;
   }
-
-  // Placeholder should not be displayed
   return { label: name, value: 0 };
 }
 
 export class GroupbyComponents extends PureComponent<Props> {
-  onGroupBySelect(chosenOptions: Array<SelectableValue<{}>>): void {
-    if (chosenOptions === undefined) {
+  onGroupBySelect(chosenOptions: Array<SelectableValue<{ label: string; value: number }>>): void {
+    if (!chosenOptions) {
       return;
     }
     const { onChange, query, onRunQuery } = this.props;
@@ -98,23 +83,25 @@ export class GroupbyComponents extends PureComponent<Props> {
     onRunQuery();
   }
 
-  onAggColSelect(option: SelectableValue<{}>, index: number): void {
-    if (option.value === undefined || option.label === undefined) {
+  onAggColSelect(option: SelectableValue<{ label: string; value: number }>, index: number): void {
+    const { onChange, query, onRunQuery } = this.props;
+    if (option.value === undefined || option.label === undefined || !query.queryMeta?.aggData) {
       return;
     }
-    const { onChange, query, onRunQuery } = this.props;
-    let aggArray = query.queryMeta?.aggData!;
+
+    const aggArray = query.queryMeta.aggData;
     aggArray[index].aggColumn = option.label;
     onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
     onRunQuery();
   }
 
-  onAggFuncSelect(option: SelectableValue<{}>, index: number): void {
-    if (option.value === undefined || option.label === undefined) {
+  onAggFuncSelect(option: SelectableValue<{ label: string; value: number }>, index: number): void {
+    const { onChange, query, onRunQuery } = this.props;
+    if (option.value === undefined || option.label === undefined || !query.queryMeta?.aggData) {
       return;
     }
-    const { onChange, query, onRunQuery } = this.props;
-    let aggArray = query.queryMeta?.aggData!;
+
+    const aggArray = query.queryMeta.aggData;
     aggArray[index].aggFunction = option.label;
     onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
     onRunQuery();
@@ -122,10 +109,11 @@ export class GroupbyComponents extends PureComponent<Props> {
 
   removeAggPair(index: number): void {
     const { onChange, query, onRunQuery } = this.props;
-    if (index >= query.queryMeta?.aggData?.length!) {
+    if (index >= query.queryMeta?.aggData?.length! || !query.queryMeta?.aggData) {
       return;
     }
-    let aggArray = query.queryMeta?.aggData!;
+
+    const aggArray = query.queryMeta.aggData;
     aggArray.splice(index, 1);
     onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
     onRunQuery();
@@ -136,13 +124,15 @@ export class GroupbyComponents extends PureComponent<Props> {
 
     return (
       <>
-        <MultiSelect
-          placeholder="Groupby Columns"
-          options={getGroupByOptions(query.queryMeta?.selectedColDisplay!, query.queryMeta?.groupByColOptions!)}
-          onChange={this.onGroupBySelect.bind(this)}
-          width={32}
-        />
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ margin: '8px', marginRight: '1px', display: 'flex' }}>
+          <MultiSelect
+            placeholder="Groupby Columns"
+            options={getGroupByOptions(query.queryMeta?.selectedColDisplay!, query.queryMeta?.groupByColOptions!)}
+            onChange={this.onGroupBySelect.bind(this)}
+            width={28}
+          />
+        </div>
+        <div style={{ margin: '8px', marginBottom: '1rem' }}>
           {query.queryMeta?.aggData?.map((field, index, remove) => (
             <HorizontalGroup key={index}>
               <Select
@@ -150,9 +140,9 @@ export class GroupbyComponents extends PureComponent<Props> {
                 placeholder="Aggregate Column"
                 value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
                 options={getGroupByOptions(query.queryMeta?.selectedColDisplay!, query.queryMeta?.groupByColOptions!)}
-                width={24}
+                width={28}
                 onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
-              />{' '}
+              />
               <Select
                 key={index}
                 placeholder="Aggregate Function"
@@ -172,7 +162,7 @@ export class GroupbyComponents extends PureComponent<Props> {
             </HorizontalGroup>
           ))}
           <Button
-            style={{ marginRight: '1rem' }}
+            style={{ display: 'flex' }}
             onClick={() => {
               const { onChange, query } = this.props;
               let aggArray = query.queryMeta?.aggData!;

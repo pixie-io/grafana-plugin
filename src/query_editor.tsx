@@ -72,7 +72,7 @@ export class QueryEditor extends PureComponent<Props> {
     }
   }
 
-  onColSelect(chosenOptions: Array<SelectableValue<{}>>) {
+  onColSelect(chosenOptions: Array<SelectableValue<{ label: string; value: number }>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
       onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
@@ -87,36 +87,36 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <div className="gf-form" style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Select
-            options={scriptOptions}
-            width={32}
-            onChange={this.onScriptSelect.bind(this)}
-            defaultValue={scriptOptions[0]}
-          />
-          {query.queryMeta?.isColDisplay ? (
-            <MultiSelect
-              placeholder="Select Columns to Display"
-              options={query.queryMeta.columnOptions}
-              onChange={this.onColSelect.bind(this)}
+        <div className="gf-form" style={{ margin: '10px', display: 'flex' }}>
+          <div style={{ margin: '8px', display: 'flex' }}>
+            <Select
+              options={scriptOptions}
               width={32}
-              inputId="column-selection"
+              onChange={this.onScriptSelect.bind(this)}
+              defaultValue={scriptOptions[0]}
             />
-          ) : (
-            <></>
-          )}
+          </div>
 
-          {query.queryMeta?.isGroupBy ? (
+          <div style={{ margin: '8px', display: 'flex' }}>
+            {query.queryMeta?.isColDisplay && (
+              <MultiSelect
+                placeholder="Select Columns to Display"
+                options={query.queryMeta.columnOptions}
+                onChange={this.onColSelect.bind(this)}
+                width={32}
+                inputId="column-selection"
+              />
+            )}
+          </div>
+
+          {query.queryMeta?.isGroupBy && (
             <GroupbyComponents
               datasource={this.props.datasource}
               query={query}
               onRunQuery={onRunQuery}
               onChange={onChange}
             />
-          ) : (
-            <></>
           )}
-
           <Button
             style={{ marginLeft: 'auto' }}
             onClick={() => {

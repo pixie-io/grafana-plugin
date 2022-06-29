@@ -90,7 +90,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
         query.queryMeta.columnOptions!.map((columnName) => `'${columnName.label}'`).join()
       );
 
-      if (query.queryMeta.selectedColGroupby) {
+      if (query.queryMeta.selectedColGroupby && pxlScript.includes('px.display')) {
         pxlScript =
           pxlScript.substring(0, pxlScript.lastIndexOf('px.display')) +
           getGroupByScript(query.queryMeta.selectedColGroupby!, query.queryMeta.aggData!);
