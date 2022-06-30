@@ -18,7 +18,7 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect, Button } from '@grafana/ui';
+import { Select, MultiSelect, Button, InlineLabel } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
@@ -72,7 +72,7 @@ export class QueryEditor extends PureComponent<Props> {
     }
   }
 
-  onColSelect(chosenOptions: Array<SelectableValue<{ label: string; value: number }>>) {
+  onColSelect(chosenOptions: Array<SelectableValue<number>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
       onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
@@ -87,8 +87,11 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <div className="gf-form" style={{ margin: '10px', display: 'flex' }}>
-          <div style={{ margin: '8px', display: 'flex' }}>
+        <div className="gf-form">
+          <div style={{ marginTop: '10px', marginRight: '10px', display: 'flex' }}>
+            <InlineLabel transparent={false} width="auto">
+              Script
+            </InlineLabel>
             <Select
               options={scriptOptions}
               width={32}
@@ -97,15 +100,20 @@ export class QueryEditor extends PureComponent<Props> {
             />
           </div>
 
-          <div style={{ margin: '8px', display: 'flex' }}>
+          <div style={{ margin: '10px', display: 'flex' }}>
             {query.queryMeta?.isColDisplay && (
-              <MultiSelect
-                placeholder="Select Columns to Display"
-                options={query.queryMeta.columnOptions}
-                onChange={this.onColSelect.bind(this)}
-                width={32}
-                inputId="column-selection"
-              />
+              <>
+                <InlineLabel transparent={false} width="auto">
+                  Columns Displayed
+                </InlineLabel>
+                <MultiSelect
+                  placeholder="Select Columns to Display"
+                  options={query.queryMeta.columnOptions}
+                  onChange={this.onColSelect.bind(this)}
+                  width={32}
+                  inputId="column-selection"
+                />
+              </>
             )}
           </div>
 
@@ -118,7 +126,7 @@ export class QueryEditor extends PureComponent<Props> {
             />
           )}
           <Button
-            style={{ marginLeft: 'auto' }}
+            style={{ marginLeft: 'auto', marginTop: '10px' }}
             onClick={() => {
               this.props.onRunQuery();
             }}

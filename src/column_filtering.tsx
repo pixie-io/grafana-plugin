@@ -18,8 +18,8 @@
 import { SelectableValue } from '@grafana/data';
 
 export function getColumnsScript(
-  chosenOptions: SelectableValue<{ label: string; value: number }>,
-  allColumnOptions: Array<SelectableValue<{ label: string; value: number }>>
+  chosenOptions: SelectableValue<number>,
+  allColumnOptions: Array<SelectableValue<number>>
 ): string {
   // Setting script default to all the columns in the script
   let script = allColumnOptions.map((columnName) => `'${columnName.label}'`).join();

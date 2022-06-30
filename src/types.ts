@@ -53,10 +53,10 @@ export interface PixieDataQuery extends DataQuery {
   queryMeta?: {
     isColDisplay?: boolean;
     isGroupBy?: boolean;
-    columnOptions?: Array<SelectableValue<{ label: string; value: number }>>;
-    groupByColOptions?: Array<SelectableValue<{ label: string; value: number }>>;
-    selectedColDisplay?: Array<SelectableValue<{ label: string; value: number }>>;
-    selectedColGroupby?: Array<SelectableValue<{ label: string; value: number }>>;
+    columnOptions?: Array<SelectableValue<number>>;
+    groupByColOptions?: Array<SelectableValue<number>>;
+    selectedColDisplay?: Array<SelectableValue<number>>;
+    selectedColGroupby?: Array<SelectableValue<number>>;
     aggData?: Array<{ aggColumn: string; aggFunction: string }>;
   };
 }
