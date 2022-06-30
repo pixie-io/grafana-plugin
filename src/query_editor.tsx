@@ -18,17 +18,17 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect, Button } from '@grafana/ui';
+import { Select, MultiSelect, Button, InlineLabel } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prism-themes/themes/prism-vsc-dark-plus.css';
-
 import './styles.css';
 import { DataSource } from './datasource';
 import { scriptOptions, Script } from './pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
+import { GroupbyComponents } from './groupby';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -61,50 +61,72 @@ export class QueryEditor extends PureComponent<Props> {
         queryType: QueryType.RunScript,
         queryBody: { pxlScript: option?.value.script ?? '' },
         queryMeta: {
-          isTabular: option.value.isTabular || false,
+          isColDisplay: option.value.isColDisplay || false,
+          isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
+          groupByColOptions: option.groupByColOptions,
+          aggData: [],
         },
       });
       onRunQuery();
     }
   }
 
-  onFilterSelect(chosenOptions: Array<SelectableValue<{}>>) {
+  onColSelect(chosenOptions: Array<SelectableValue<number>>) {
     if (chosenOptions !== undefined) {
       const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColumns: chosenOptions } });
+      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
       onRunQuery();
     }
   }
 
   render() {
     const query = defaults(this.props.query, defaultQuery);
+    const { onChange, onRunQuery } = this.props;
     const pxlScript = query?.queryBody?.pxlScript;
 
     return (
       <div className="gf-form" style={{ margin: '10px', display: 'block' }}>
-        <div className="gf-form" style={{ display: 'flex' }}>
-          <Select
-            options={scriptOptions}
-            width={32}
-            onChange={this.onScriptSelect.bind(this)}
-            defaultValue={scriptOptions[0]}
-          />
-
-          {query.queryMeta && query.queryMeta.isTabular ? (
-            <MultiSelect
-              className="m-2"
-              placeholder="Select columns to filter"
-              options={query.queryMeta.columnOptions}
-              onChange={this.onFilterSelect.bind(this)}
+        <div className="gf-form">
+          <div style={{ marginTop: '10px', marginRight: '10px', display: 'flex' }}>
+            <InlineLabel transparent={false} width="auto">
+              Script
+            </InlineLabel>
+            <Select
+              options={scriptOptions}
               width={32}
-              inputId="column-selection"
+              onChange={this.onScriptSelect.bind(this)}
+              defaultValue={scriptOptions[0]}
             />
-          ) : (
-            <></>
+          </div>
+
+          <div style={{ margin: '10px', display: 'flex' }}>
+            {query.queryMeta?.isColDisplay && (
+              <>
+                <InlineLabel transparent={false} width="auto">
+                  Columns Displayed
+                </InlineLabel>
+                <MultiSelect
+                  placeholder="Select Columns to Display"
+                  options={query.queryMeta.columnOptions}
+                  onChange={this.onColSelect.bind(this)}
+                  width={32}
+                  inputId="column-selection"
+                />
+              </>
+            )}
+          </div>
+
+          {query.queryMeta?.isGroupBy && (
+            <GroupbyComponents
+              datasource={this.props.datasource}
+              query={query}
+              onRunQuery={onRunQuery}
+              onChange={onChange}
+            />
           )}
           <Button
-            className="m-2"
+            style={{ marginLeft: 'auto', marginTop: '10px' }}
             onClick={() => {
               this.props.onRunQuery();
             }}

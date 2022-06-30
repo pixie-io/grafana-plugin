@@ -51,9 +51,13 @@ export interface PixieDataQuery extends DataQuery {
   };
   // queryMeta is used for UI-Rendering
   queryMeta?: {
-    isTabular?: boolean;
-    columnOptions?: Array<{ label: string; value: number }>;
-    selectedColumns?: Array<SelectableValue<{}>>;
+    isColDisplay?: boolean;
+    isGroupBy?: boolean;
+    columnOptions?: Array<SelectableValue<number>>;
+    groupByColOptions?: Array<SelectableValue<number>>;
+    selectedColDisplay?: Array<SelectableValue<number>>;
+    selectedColGroupby?: Array<SelectableValue<number>>;
+    aggData?: Array<{ aggColumn: string; aggFunction: string }>;
   };
 }
 
