@@ -18,15 +18,15 @@
 import { SelectableValue } from '@grafana/data';
 
 export function getColumnsScript(
-  chosenOptions: SelectableValue<number>,
+  chosenOptions: Array<SelectableValue<number>>,
   allColumnOptions: Array<SelectableValue<number>>
 ): string {
   // Setting script default to all the columns in the script
-  let script = allColumnOptions.map((columnName) => `'${columnName.label}'`).join();
+  let script = allColumnOptions.map(({ label }) => `'${label}'`).join();
 
   // Updating the script if the user selected columns to filter
-  if (chosenOptions && chosenOptions.length > 0) {
-    script = chosenOptions.map((columnName: { label: string; value: number }) => `'${columnName.label}'`).join();
+  if (chosenOptions?.length > 0) {
+    script = chosenOptions.map(({ label }) => `'${label}'`).join();
   }
 
   return script;
