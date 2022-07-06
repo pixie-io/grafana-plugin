@@ -31,6 +31,7 @@ const networkTraffic = require('pxl_scripts/network-traffic-node-graph.json');
 const outboundConnections = require('pxl_scripts/outbound-connections-node-graph.json');
 const nodeMetrics = require('pxl_scripts/node-metrics.json');
 const namespacesMetrics = require('pxl_scripts/namespaces-metrics.json');
+const serviceMetrics = require('pxl_scripts/service-metrics.json');
 
 export interface Script {
   name: string;
@@ -46,17 +47,18 @@ export interface Script {
 const scriptsRaw: Script[] = [
   customQuery,
   exampleQuery,
+  podMetrics,
+  nodeMetrics,
+  namespacesMetrics,
+  serviceMetrics,
   httpDataFiltered,
   httpErrorsPerService,
-  podMetrics,
   httpRequestPerService,
   httpRequestThroughput,
   httpServiceMap,
-  inboundConnections,
   networkTraffic,
+  inboundConnections,
   outboundConnections,
-  nodeMetrics,
-  namespacesMetrics,
 ];
 
 // Construct options list which is injested by Select component in
