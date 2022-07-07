@@ -17,7 +17,14 @@
  */
 
 import { DataFrame, DataSourceInstanceSettings, MetricFindValue, ScopedVars, toDataFrame } from '@grafana/data';
-import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
+import {
+  DataSourceWithBackend,
+  getTemplateSrv,
+  FetchResponse,
+  getBackendSrv,
+  BackendSrv,
+  toDataQueryResponse,
+} from '@grafana/runtime';
 import {
   PixieDataSourceOptions,
   PixieDataQuery,
@@ -100,6 +107,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
     const interpolatedQuery = {
       ...query,
       refId,
+      datasourceId: this.id,
       datasource: {
         type: this.type,
         uid: this.uid,
@@ -168,7 +176,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   }
 
   async metricFindQuery(query: PixieVariableQuery, options?: any): Promise<MetricFindValue[]> {
-    const variableName: string = options.variable.name;
+    // const variableName: string = options.variable.name;
     // Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
@@ -177,9 +185,8 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       query = { ...query, queryBody: { clusterID: interpolatedClusterId } };
     }
     // Fetch variables from the backend
-    const response = await this.fetchMetricNames(query, options);
-    //Convert the response to a DataFrame
-    const frame: DataFrame = toDataFrame(response!.data.results[variableName].frames[0]);
+    const response = toDataQueryResponse(await this.fetchMetricNames(query, options));
+    const frame: DataFrame = toDataFrame(response.data[0]);
 
     //Convert DataFrame to an array of objects containing fields same as column names of the DataFrame
     const flatData: ClusterMeta[] = this.zipGrafanaDataFrame(frame);
