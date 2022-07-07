@@ -75,6 +75,8 @@ export interface PixieSecureDataSourceOptions {
   apiKey?: string;
   // Address of Pixie cloud.
   cloudAddr?: string;
+  // ID of the Pixie cluster to query.
+  clusterId?: string;
 }
 
 export function checkExhaustive(val: never): never {
