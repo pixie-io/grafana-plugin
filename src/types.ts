@@ -78,7 +78,3 @@ export interface PixieSecureDataSourceOptions {
   // ID of the Pixie cluster to query.
   clusterId?: string;
 }
-
-export function checkExhaustive(val: never): never {
-  throw new Error(`Unexpected value: ${JSON.stringify(val)}`);
-}

@@ -16,14 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  DataFrame,
-  DataSourceInstanceSettings,
-  MetricFindValue,
-  ScopedVars,
-  toDataFrame,
-  VariableModel,
-} from '@grafana/data';
+import { DataFrame, DataSourceInstanceSettings, MetricFindValue, ScopedVars, toDataFrame } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv, FetchResponse, getBackendSrv, BackendSrv } from '@grafana/runtime';
 import {
   PixieDataSourceOptions,
@@ -31,10 +24,10 @@ import {
   PixieVariableQuery,
   CLUSTER_VARIABLE_NAME as CLUSTER_VARIABLE_NAME,
   QueryType,
-  checkExhaustive,
 } from './types';
 import { getColumnsScript } from './column_filtering';
 import { getGroupByScript } from './groupby';
+import { checkExhaustive, getClusterId } from 'utils';
 
 const timeVars = [
   ['$__from', '__time_from'],
@@ -55,16 +48,6 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   constructor(instanceSettings: DataSourceInstanceSettings<PixieDataSourceOptions>) {
     super(instanceSettings);
     this.backendSrv = getBackendSrv();
-  }
-
-  getClusterId(): string {
-    const dashboardVariables: VariableModel[] = getTemplateSrv().getVariables();
-
-    // find cluster variable and convert it to any since the variable value field is not exposed
-    const pixieClusterIdVariable = dashboardVariables.find(
-      (variable) => variable.name === CLUSTER_VARIABLE_NAME
-    ) as any;
-    return pixieClusterIdVariable?.current?.value ?? '';
   }
 
   applyTemplateVariables(query: PixieDataQuery, scopedVars: ScopedVars) {
@@ -101,7 +84,7 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
       ...query,
       queryBody: {
         ...query.queryBody,
-        clusterID: this.getClusterId(),
+        clusterID: getClusterId() ?? '',
         pxlScript: pxlScript
           ? getTemplateSrv().replace(pxlScript, {
               ...scopedVars,
