@@ -170,17 +170,20 @@ export class GroupbyComponents extends PureComponent<Props> {
               </div>
             </HorizontalGroup>
           ))}
-          <Button
-            style={{ float: 'right', marginRight: '31px' }}
-            onClick={() => {
-              const { onChange, query } = this.props;
-              let aggArray = query.queryMeta?.aggData!;
-              aggArray.push({ aggColumn: '', aggFunction: '' });
-              onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-            }}
-          >
-            Add Aggregate Pair
-          </Button>
+
+          {query.queryMeta?.selectedColGroupby && query.queryMeta?.selectedColGroupby?.length !== 0 && (
+            <Button
+              style={{ float: 'right', marginRight: '31px' }}
+              onClick={() => {
+                const { onChange, query } = this.props;
+                let aggArray = query.queryMeta?.aggData!;
+                aggArray.push({ aggColumn: '', aggFunction: '' });
+                onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+              }}
+            >
+              Add Aggregate Pair
+            </Button>
+          )}
         </div>
       </>
     );
