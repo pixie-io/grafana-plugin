@@ -66,8 +66,8 @@ export class QueryEditor extends PureComponent<Props> {
           isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
           groupByColOptions: option.groupByColOptions,
-          selectedColDisplay: [],
-          selectedColGroupby: [],
+          selectedColDisplay: [] || null,
+          selectedColGroupby: [] || null,
           aggData: [],
         },
       });
@@ -100,7 +100,6 @@ export class QueryEditor extends PureComponent<Props> {
               options={scriptOptions}
               width={32}
               onChange={this.onScriptSelect.bind(this)}
-              //defaultValue={scriptOptions[0]}
               defaultValue={query.queryScript ?? scriptOptions[0]}
             />
           </div>
@@ -118,6 +117,7 @@ export class QueryEditor extends PureComponent<Props> {
                   closeMenuOnSelect={false}
                   width={32}
                   inputId="column-selection"
+                  value={query.queryMeta.selectedColDisplay ?? undefined}
                 />
               </>
             )}
