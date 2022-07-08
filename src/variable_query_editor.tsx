@@ -22,6 +22,7 @@ import React, { useState } from 'react';
 
 import { CLUSTER_VARIABLE_NAME, PixieVariableQuery, QueryType } from './types';
 import './styles.css';
+import { getClusterId } from 'utils';
 
 //Specifies what properties the VariableQueryEditor receives in constructor
 interface VariableQueryProps {
@@ -38,7 +39,8 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange }) 
   ];
 
   let [currentValue, setCurrentValue] = useState(valueOptions[0]);
-  let [clusterID, setClusterID] = useState(`\$${CLUSTER_VARIABLE_NAME}`);
+  let clusterIDVariableSet = getClusterId() ? true : false;
+  let [clusterID, setClusterID] = useState(clusterIDVariableSet ? `\$${CLUSTER_VARIABLE_NAME}` : '');
 
   const onSubmit = () => {
     let query: PixieVariableQuery = { queryType: currentValue.value! };

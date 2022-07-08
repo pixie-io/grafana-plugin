@@ -40,6 +40,18 @@ export class ConfigEditor extends PureComponent<Props, State> {
     });
   };
 
+  onClusterIdChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { onOptionsChange, options } = this.props;
+
+    onOptionsChange({
+      ...options,
+      secureJsonData: {
+        ...options?.secureJsonData,
+        clusterId: event.target.value,
+      },
+    });
+  };
+
   onCloudAddrChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { onOptionsChange, options } = this.props;
 
@@ -64,6 +76,22 @@ export class ConfigEditor extends PureComponent<Props, State> {
       secureJsonData: {
         ...options.secureJsonData,
         apiKey: '',
+      },
+    });
+  };
+
+  onResetClusterId = () => {
+    const { onOptionsChange, options } = this.props;
+
+    onOptionsChange({
+      ...options,
+      secureJsonFields: {
+        ...options.secureJsonFields,
+        clusterId: false,
+      },
+      secureJsonData: {
+        ...options.secureJsonData,
+        clusterId: '',
       },
     });
   };
@@ -102,6 +130,21 @@ export class ConfigEditor extends PureComponent<Props, State> {
               inputWidth={20}
               onReset={this.onResetAPIKey}
               onChange={this.onAPIKeyChange}
+            />
+          </div>
+        </div>
+
+        <div className="gf-form-inline">
+          <div className="gf-form">
+            <SecretFormField
+              isConfigured={(secureJsonFields && secureJsonFields.clusterId) as boolean}
+              value={secureJsonData.clusterId || ''}
+              label="Cluster ID"
+              placeholder="Default Cluster ID"
+              labelWidth={20}
+              inputWidth={20}
+              onReset={this.onResetClusterId}
+              onChange={this.onClusterIdChange}
             />
           </div>
         </div>
