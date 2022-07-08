@@ -65,9 +65,12 @@ export class QueryEditor extends PureComponent<Props> {
           isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
           groupByColOptions: option.groupByColOptions,
+          selectedColDisplay: [],
+          selectedColGroupby: [],
           aggData: [],
         },
       });
+
       onRunQuery();
     }
   }
@@ -110,6 +113,7 @@ export class QueryEditor extends PureComponent<Props> {
                   placeholder="Select Columns to Display"
                   options={query.queryMeta.columnOptions}
                   onChange={this.onColSelect.bind(this)}
+                  closeMenuOnSelect={false}
                   width={32}
                   inputId="column-selection"
                 />
