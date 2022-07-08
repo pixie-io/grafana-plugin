@@ -176,7 +176,6 @@ export class DataSource extends DataSourceWithBackend<PixieDataQuery, PixieDataS
   }
 
   async metricFindQuery(query: PixieVariableQuery, options?: any): Promise<MetricFindValue[]> {
-    // const variableName: string = options.variable.name;
     // Make sure the query is not empty. Variable query editor will send empty string if user haven't clicked on dropdown menu
     query = query || { queryType: 'get-clusters' as const };
 
