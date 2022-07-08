@@ -17,7 +17,7 @@
  */
 
 import { DataQuery, DataSourceJsonData, SelectableValue } from '@grafana/data';
-import { scriptOptions } from './pxl_scripts';
+import { scriptOptions, Script } from './pxl_scripts';
 
 // Types of available queries to the backend
 export const enum QueryType {
@@ -45,6 +45,7 @@ export interface PixieVariableQuery {
 export interface PixieDataQuery extends DataQuery {
   queryType: QueryType;
   clusterID?: string;
+  queryScript?: SelectableValue<Script>;
   queryBody?: {
     clusterID?: string;
     pxlScript?: string;

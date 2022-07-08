@@ -59,6 +59,7 @@ export class QueryEditor extends PureComponent<Props> {
       onChange({
         ...query,
         queryType: QueryType.RunScript,
+        queryScript: option ?? null,
         queryBody: { pxlScript: option?.value.script ?? '' },
         queryMeta: {
           isColDisplay: option.value.isColDisplay || false,
@@ -99,7 +100,8 @@ export class QueryEditor extends PureComponent<Props> {
               options={scriptOptions}
               width={32}
               onChange={this.onScriptSelect.bind(this)}
-              defaultValue={scriptOptions[0]}
+              //defaultValue={scriptOptions[0]}
+              defaultValue={query.queryScript ?? scriptOptions[0]}
             />
           </div>
 
