@@ -32,11 +32,9 @@ import (
 
 const (
 	// Define keys to retrieve configs passed from UI.
-	apiKeyField       = "apiKey"
-	API_KEY_LENGTH    = 43
-	clusterIDField    = "clusterId"
-	CLUSTER_ID_LENGTH = 36
-	cloudAddrField    = "cloudAddr"
+	apiKeyField    = "apiKey"
+	clusterIDField = "clusterId"
+	cloudAddrField = "cloudAddr"
 )
 
 // createPixieDatasource creates a new Pixie datasource.
@@ -175,10 +173,6 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 		return nil, fmt.Errorf("no clusterID present in the request or default clusterID configured. Please set `pixieCluster` dashboard variable to `Pixie Datasource`->`Clusters`")
 	}
 
-	if len(qm.QueryBody.ClusterID) != 0 {
-		clusterID = qm.QueryBody.ClusterID
-	}
-
 	switch qm.QueryType {
 	case RunScript:
 		return qp.queryScript(ctx, qm.QueryBody.PxlScript, query, clusterID)
@@ -203,20 +197,6 @@ func (td *PixieDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 	message := "Connection to Pixie cluster successfully configured"
 	config := req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData
 
-	if status == backend.HealthStatusOk {
-		if len(config[apiKeyField]) != API_KEY_LENGTH {
-			message = fmt.Sprintf("Error with API key, incorrect length of the key: %v.", len(config[apiKeyField]))
-			status = backend.HealthStatusError
-		}
-	}
-
-	if status == backend.HealthStatusOk {
-		if len(config[clusterIDField]) != CLUSTER_ID_LENGTH && len(config[clusterIDField]) != 0 {
-			message = fmt.Sprintf("Error with cluster id, incorrect length of the id: %v.", len(config[clusterIDField]))
-			status = backend.HealthStatusError
-		}
-	}
-
 	var client *pxapi.Client
 	var err error
 
@@ -230,7 +210,7 @@ func (td *PixieDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 
 	if status == backend.HealthStatusOk {
 		// only check the health of clusterID if the user specified clusterID
-		if len(config[clusterIDField]) == CLUSTER_ID_LENGTH {
+		if len(config[clusterIDField]) != 0 {
 			_, err = client.NewVizierClient(ctx, config[clusterIDField])
 			if err != nil {
 				message = fmt.Sprintf("Unable to create Vizier Client: %+v, clusterID: '%+v'", err, config[clusterIDField])
