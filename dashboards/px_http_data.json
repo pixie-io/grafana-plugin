@@ -13,10 +13,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
+        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -32,18 +29,13 @@
     ]
   },
   "editable": true,
-  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1657153687716,
+  "iteration": 1657240479716,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
-      "datasource": {
-        "type": "pixie-pixie-datasource",
-        "uid": "${DS_PIXIE_GRAFANA DATASOURCE PLUGIN}"
-      },
+      "datasource": "${DS_PIXIE_GRAFANA DATASOURCE PLUGIN}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -225,13 +217,9 @@
           }
         ]
       },
-      "pluginVersion": "9.0.2",
+      "pluginVersion": "7.5.1",
       "targets": [
         {
-          "datasource": {
-            "type": "pixie-pixie-datasource",
-            "uid": "${DS_PIXIE_GRAFANA DATASOURCE PLUGIN}"
-          },
           "queryBody": {
             "pxlScript": "# Copyright 2018- The Pixie Authors.\n#\n# Licensed under the Apache License, Version 2.0 (the \"License\");\n# you may not use this file except in compliance with the License.\n# You may obtain a copy of the License at\n#\n#     http://www.apache.org/licenses/LICENSE-2.0\n#\n# Unless required by applicable law or agreed to in writing, software\n# distributed under the License is distributed on an \"AS IS\" BASIS,\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n# See the License for the specific language governing permissions and\n# limitations under the License.\n#\n# SPDX-License-Identifier: Apache-2.0\n\n''' HTTP Data Tracer\n\nThis script traces all HTTP/HTTP2 data on the cluster.\n'''\nimport px\n\n# $pixieCluster - work around for grafana to update panel on variable change\n\ndef http_data(start_time: int, source_filter: str, destination_filter: str, num_head: int):\n\n    df = px.DataFrame(table='http_events', start_time=start_time)\n\n    # Add context.\n    df.node = df.ctx['node']\n    df.pid = px.upid_to_pid(df.upid)\n    df = add_source_dest_columns(df)\n\n    # Filter out entities as specified by the user.\n    df = df[px.contains(df.source, source_filter)]\n    df = df[px.contains(df.destination, destination_filter)]\n\n    # Add additional filters below:\n\n    # Restrict number of results.\n    df = df.head(num_head)\n    # Avoid conversion to wide format\n    df.timestamp = df.time_\n    df = df.drop(columns=['time_'])\n    \n    df.latency = df.latency / px.pow(10,6)\n    df.resp_body_size = df.resp_body_size / px.pow(2,10) \n\n    # Order columns.\n    df = df['timestamp', 'source', 'destination', 'latency', 'major_version', 'req_path',\n            'req_method', 'req_headers', 'req_body', 'req_body_size', 'resp_status',\n            'resp_message', 'resp_headers', 'resp_body', 'resp_body_size']\n\n    return df\n\n\ndef add_source_dest_columns(df):\n    ''' Add source and destination columns for the HTTP request.\n\n    HTTP requests are traced server-side (trace_role==2), unless the server is\n    outside of the cluster in which case the request is traced client-side (trace_role==1).\n\n    When trace_role==2, the HTTP request source is the remote_addr column\n    and destination is the pod column. When trace_role==1, the HTTP request\n    source is the pod column and the destination is the remote_addr column.\n\n    Input DataFrame must contain trace_role, upid, remote_addr columns.\n    '''\n    df.pod = df.ctx['pod']\n    df.namespace = df.ctx['namespace']\n\n    # If remote_addr is a pod, get its name. If not, use IP address.\n    df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))\n    df.is_ra_pod = df.ra_pod != ''\n    df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)\n\n    df.is_server_tracing = df.trace_role == 2\n    df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)\n    df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)\n\n    # Set source and destination based on trace_role.\n    df.source = px.select(df.is_server_tracing, df.ra_name, df.pod)\n    df.destination = px.select(df.is_server_tracing, df.pod, df.ra_name)\n\n    # Filter out messages with empty source / destination.\n    df = df[df.source != '']\n    df = df[df.destination != '']\n\n    df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])\n    return df\n\noutput = http_data($__from, '$sourceFilter', '$destinationFilter', $maxNumRecords)\n\npx.display(output)"
           },
@@ -244,17 +232,14 @@
     }
   ],
   "refresh": "",
-  "schemaVersion": 36,
+  "schemaVersion": 27,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {},
-        "datasource": {
-          "type": "pixie-pixie-datasource",
-          "uid": "${DS_PIXIE_GRAFANA DATASOURCE PLUGIN}"
-        },
+        "datasource": "${DS_PIXIE_GRAFANA DATASOURCE PLUGIN}",
         "definition": "Clusters",
         "hide": 0,
         "includeAll": false,
