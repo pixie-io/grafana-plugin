@@ -1380,7 +1380,7 @@
         "query": {
           "queryType": "get-clusters"
         },
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -1401,7 +1401,7 @@
           },
           "queryType": "get-pods"
         },
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
