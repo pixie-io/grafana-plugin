@@ -79,7 +79,16 @@ export class GroupbyComponents extends PureComponent<Props> {
       return;
     }
     const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColGroupby: chosenOptions } });
+    const aggData = chosenOptions.length ? query.queryMeta?.aggData ?? [] : [];
+
+    onChange({
+      ...query,
+      queryMeta: {
+        ...query.queryMeta,
+        selectedColGroupby: chosenOptions,
+        aggData,
+      },
+    });
     onRunQuery();
   }
 
@@ -132,55 +141,64 @@ export class GroupbyComponents extends PureComponent<Props> {
             placeholder="Groupby Columns"
             options={getGroupByOptions(query.queryMeta?.selectedColDisplay!, query.queryMeta?.groupByColOptions!)}
             onChange={this.onGroupBySelect.bind(this)}
-            width={28}
+            closeMenuOnSelect={false}
+            width={34}
           />
         </div>
         <div style={{ marginTop: '10px', marginLeft: '10px' }}>
-          {query.queryMeta?.aggData?.map((field, index, remove) => (
-            <HorizontalGroup key={index}>
-              <div style={{ marginBottom: '8px' }}>
-                <Select
-                  key={index}
-                  placeholder="Aggregate Column"
-                  value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
-                  options={getGroupByOptions(query.queryMeta?.selectedColDisplay!, query.queryMeta?.groupByColOptions!)}
-                  width={28}
-                  onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
-                />
-              </div>
-              <div style={{ marginLeft: '3px', marginBottom: '8px' }}>
-                <Select
-                  key={index}
-                  placeholder="Aggregate Function"
-                  value={getAggValues(query.queryMeta?.aggData![index].aggFunction!)}
-                  options={aggFunctionOptions}
-                  width={24}
-                  onChange={(value: SelectableValue) => this.onAggFuncSelect.bind(this)(value, index)}
-                />
-              </div>
-              <div style={{ marginLeft: '3px', marginBottom: '8px' }}>
-                <IconButton
-                  name="trash-alt"
-                  size="md"
-                  iconType="default"
-                  onClick={() => {
-                    this.removeAggPair(index);
-                  }}
-                ></IconButton>
-              </div>
-            </HorizontalGroup>
-          ))}
-          <Button
-            style={{ float: 'right', marginRight: '31px' }}
-            onClick={() => {
-              const { onChange, query } = this.props;
-              let aggArray = query.queryMeta?.aggData!;
-              aggArray.push({ aggColumn: '', aggFunction: '' });
-              onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
-            }}
-          >
-            Add Aggregate Pair
-          </Button>
+          {query.queryMeta?.selectedColGroupby && query.queryMeta?.selectedColGroupby?.length !== 0 && (
+            <>
+              {query.queryMeta?.aggData?.map((field, index, remove) => (
+                <HorizontalGroup key={index}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <Select
+                      key={index}
+                      placeholder="Aggregate Column"
+                      value={getAggValues(query.queryMeta?.aggData![index].aggColumn!)}
+                      options={getGroupByOptions(
+                        query.queryMeta?.selectedColDisplay!,
+                        query.queryMeta?.groupByColOptions!
+                      )}
+                      width={28}
+                      onChange={(value: SelectableValue) => this.onAggColSelect.bind(this)(value, index)}
+                    />
+                  </div>
+                  <div style={{ marginLeft: '3px', marginBottom: '8px' }}>
+                    <Select
+                      key={index}
+                      placeholder="Aggregate Function"
+                      value={getAggValues(query.queryMeta?.aggData![index].aggFunction!)}
+                      options={aggFunctionOptions}
+                      width={24}
+                      onChange={(value: SelectableValue) => this.onAggFuncSelect.bind(this)(value, index)}
+                    />
+                  </div>
+                  <div style={{ marginLeft: '3px', marginBottom: '8px' }}>
+                    <IconButton
+                      name="trash-alt"
+                      size="md"
+                      iconType="default"
+                      onClick={() => {
+                        this.removeAggPair(index);
+                      }}
+                    ></IconButton>
+                  </div>
+                </HorizontalGroup>
+              ))}
+
+              <Button
+                style={{ float: 'right', marginRight: '31px' }}
+                onClick={() => {
+                  const { onChange, query } = this.props;
+                  let aggArray = query.queryMeta?.aggData!;
+                  aggArray.push({ aggColumn: '', aggFunction: '' });
+                  onChange({ ...query, queryMeta: { ...query.queryMeta, aggData: aggArray } });
+                }}
+              >
+                Add Aggregate Pair
+              </Button>
+            </>
+          )}
         </div>
       </>
     );
