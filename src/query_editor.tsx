@@ -66,8 +66,8 @@ export class QueryEditor extends PureComponent<Props> {
           isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
           groupByColOptions: option.groupByColOptions,
-          selectedColDisplay: [] || null,
-          selectedColGroupby: [] || null,
+          selectedColDisplay: [],
+          selectedColGroupby: [],
           aggData: [],
         },
       });
