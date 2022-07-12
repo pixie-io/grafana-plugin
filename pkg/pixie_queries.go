@@ -108,10 +108,14 @@ func (qp PixieQueryProcessor) queryScript(
 
 	// Add the frames to the response.
 	for _, tablePrinter := range tm.pxTablePrinterLst {
-		// If time series schema long && time_ column, convert to wide. Otherwise
+		// If time series schema long && time_ column && table not empty, convert to wide. Otherwise
 		// proceed as normal.
 		tsSchema := tablePrinter.frame.TimeSeriesSchema()
-		if tablePrinter.FormatGrafanaTimeFrame() && tsSchema.Type == data.TimeSeriesTypeLong {
+		numRows, err := tablePrinter.frame.RowLen()
+		if err != nil {
+			return nil, err
+		}
+		if numRows != 0 && tablePrinter.FormatGrafanaTimeFrame() && tsSchema.Type == data.TimeSeriesTypeLong {
 			wideFrame, err := data.LongToWide(tablePrinter.frame,
 				&data.FillMissing{Mode: data.FillModeNull})
 			if err != nil {
