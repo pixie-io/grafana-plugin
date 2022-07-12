@@ -20,9 +20,11 @@
     "rxjs": "^6.6.3",
     "ssri": "^8.0.1",
     "moment": "^2.29.4",
-    "@grafana/toolkit/*/immer": "^8.0.1",
+    "@grafana/toolkit/*/immer": "^9.0.6",
+    "@grafana/toolkit/*/shell-quote": "^1.7.3",
+    "@grafana/toolkit/**/ansi-regex": "^5.0.1",
     "@grafana/toolkit/*/*/yargs-parser": "^18.1.2",
-    "@grafana/toolkit/*/*/minimist": "^1.2.3"
+    "@grafana/toolkit/*/*/minimist": "^1.2.6"
   },
   "engines": {
     "node": ">=14"
