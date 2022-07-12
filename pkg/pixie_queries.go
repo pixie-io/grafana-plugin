@@ -113,9 +113,6 @@ func (qp PixieQueryProcessor) queryScript(
 		tsSchema := tablePrinter.frame.TimeSeriesSchema()
 		numRows, err := tablePrinter.frame.RowLen()
 		if err != nil {
-			streamStrErr := fmt.Errorf("got error : %+v, while streaming", err)
-			response.Error = streamStrErr
-			log.DefaultLogger.Error(streamStrErr.Error())
 			return nil, err
 		}
 		if numRows != 0 && tablePrinter.FormatGrafanaTimeFrame() && tsSchema.Type == data.TimeSeriesTypeLong {
