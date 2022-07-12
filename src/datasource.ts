@@ -32,7 +32,7 @@ import {
   CLUSTER_VARIABLE_NAME as CLUSTER_VARIABLE_NAME,
   QueryType,
 } from './types';
-import { getColumnsScript } from './column_filtering';
+import { getColumnsScript } from './column_display';
 import { getGroupByScript } from './groupby';
 import { checkExhaustive, getClusterId } from 'utils';
 

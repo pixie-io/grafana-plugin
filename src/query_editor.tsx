@@ -18,7 +18,7 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { Select, MultiSelect, Button, InlineLabel } from '@grafana/ui';
+import { Select, Button, InlineLabel } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
@@ -29,6 +29,7 @@ import { DataSource } from './datasource';
 import { scriptOptions, Script } from './pxl_scripts';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery, QueryType } from './types';
 import { GroupbyComponents } from './groupby';
+import { ColDisplayComponents } from './column_display';
 
 type Props = QueryEditorProps<DataSource, PixieDataQuery, PixieDataSourceOptions>;
 
@@ -66,20 +67,11 @@ export class QueryEditor extends PureComponent<Props> {
           isGroupBy: option.value.isGroupBy || false,
           columnOptions: option.columnOptions,
           groupByColOptions: option.groupByColOptions,
-          selectedColDisplay: [],
+          selectedColDisplay: option.columnOptions,
           selectedColGroupby: [],
           aggData: [],
         },
       });
-
-      onRunQuery();
-    }
-  }
-
-  onColSelect(chosenOptions: Array<SelectableValue<number>>) {
-    if (chosenOptions !== undefined) {
-      const { onChange, query, onRunQuery } = this.props;
-      onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
       onRunQuery();
     }
   }
@@ -104,24 +96,14 @@ export class QueryEditor extends PureComponent<Props> {
             />
           </div>
 
-          <div style={{ margin: '10px', display: 'flex' }}>
-            {query.queryMeta?.isColDisplay && (
-              <>
-                <InlineLabel transparent={false} width="auto">
-                  Columns Displayed
-                </InlineLabel>
-                <MultiSelect
-                  placeholder="Select Columns to Display"
-                  options={query.queryMeta.columnOptions}
-                  onChange={this.onColSelect.bind(this)}
-                  closeMenuOnSelect={false}
-                  width={32}
-                  inputId="column-selection"
-                  value={query.queryMeta.selectedColDisplay}
-                />
-              </>
-            )}
-          </div>
+          {query.queryMeta?.isColDisplay && (
+            <ColDisplayComponents
+              datasource={this.props.datasource}
+              query={query}
+              onRunQuery={onRunQuery}
+              onChange={onChange}
+            />
+          )}
 
           {query.queryMeta?.isGroupBy && (
             <GroupbyComponents
