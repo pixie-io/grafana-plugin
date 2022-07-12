@@ -1,5 +1,5 @@
 {
     "name": "HTTP Error Rate by Service (Wide Format)",
-    "description": "Best viewed as a table. Query outputs HTTP error and total request count per service",
+    "description": "Use with the Table visualization. Query outputs HTTP error and total request count per service",
     "script": "'''\nThis query outputs a table of HTTP error and total request count per service.\n\nThis query is for use with Grafana's Pixie Datasource Plugin only,\nas it uses Grafana macros for adding Grafana dashboard context.\n'''\n\n# $pixieCluster - work around to update the panel if this dashboard variable is present\n\n# Import Pixie's module for querying data.\nimport px\n\n# Import HTTP events table.\ndf = px.DataFrame(table='http_events', start_time=__time_from)\n\n# Add columns for service, namespace info.\ndf.namespace = df.ctx['namespace']\ndf.service = df.ctx['service']\n\n# Filter out requests that don't have a service defined.\ndf = df[df.service != '']\n\n# Filter out requests from the Pixie (pl) namespace.\ndf = df[df.namespace != 'pl']\n\n# Add column for HTTP response status errors.\ndf.error = df.resp_status >= 400\n\n# Group HTTP events by service, counting errors and total HTTP events.\ndf = df.groupby(['service']).agg(\n error_count=('error', px.sum),\n total_requests=('resp_status', px.count)\n)\n\n# Output the DataFrame.\npx.display(df)\n"
 }
