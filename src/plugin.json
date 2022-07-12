@@ -28,8 +28,8 @@
       }
     ],
     "screenshots": [],
-    "version": "0.0.3",
-    "updated": "2022-06-22"
+    "version": "0.0.4",
+    "updated": "2022-07-11"
   },
   "dependencies": {
     "grafanaDependency": ">=7.0.0",
