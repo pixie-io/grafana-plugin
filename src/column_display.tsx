@@ -15,9 +15,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { MultiSelect, InlineLabel } from '@grafana/ui';
+import { MultiSelect, InlineLabel, Tooltip } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 import { DataSource } from './datasource';
@@ -41,21 +42,37 @@ export function getColumnsScript(
 
 export class ColDisplayComponents extends PureComponent<Props> {
   onColSelect(chosenOptions: Array<SelectableValue<number>>) {
-    const { onChange, query, onRunQuery } = this.props;
-
-    const isSubset =
-      query.queryMeta?.selectedColGroupby
-        ?.map(({ label }) => label)
-        .every((label) => chosenOptions.map(({ label }) => label).includes(label)) &&
-      query.queryMeta?.aggData
-        ?.map(({ aggColumn }) => aggColumn)
-        .every((aggColumn) => chosenOptions.map(({ label }) => label).includes(aggColumn));
-
-    if (chosenOptions === undefined || !isSubset) {
+    if (chosenOptions === undefined) {
       return;
     }
+    const { onChange, query, onRunQuery } = this.props;
 
-    onChange({ ...query, queryMeta: { ...query.queryMeta, selectedColDisplay: chosenOptions } });
+    // Finds which column was removed between the old and new cols selected
+    const oldCols = query.queryMeta?.selectedColDisplay?.map(({ label }) => label)!;
+    const chosenCols = chosenOptions.map(({ label }) => label);
+    const colToRemove = oldCols.filter((c) => !chosenCols.includes(c))[0];
+
+    // Update Groupby Array with correct columns to display
+    const groupByArr = query.queryMeta?.selectedColGroupby?.filter(({ label }) => {
+      return label !== colToRemove;
+    });
+
+    // Update Aggregate Array with correct columns to display
+    const aggArr = query.queryMeta?.aggData?.filter(({ aggColumn }) => {
+      return aggColumn !== colToRemove;
+    });
+    const aggData = groupByArr?.length ? aggArr ?? [] : [];
+
+    onChange({
+      ...query,
+      queryMeta: {
+        ...query.queryMeta,
+        selectedColDisplay: chosenOptions,
+        selectedColGroupby: groupByArr,
+        aggData: aggData,
+      },
+    });
+
     onRunQuery();
   }
 
@@ -69,16 +86,19 @@ export class ColDisplayComponents extends PureComponent<Props> {
             <InlineLabel transparent={false} width="auto">
               Columns Displayed
             </InlineLabel>
-            <MultiSelect
-              placeholder="Select Columns to Display"
-              options={query.queryMeta.columnOptions}
-              onChange={this.onColSelect.bind(this)}
-              closeMenuOnSelect={false}
-              width={32}
-              isClearable={true}
-              inputId="column-selection"
-              value={query.queryMeta.selectedColDisplay ?? undefined}
-            />
+
+            <Tooltip content={'Cannot remove options selected in groupby/aggregate'} theme={'info'}>
+              <MultiSelect
+                placeholder="Select Columns to Display"
+                options={query.queryMeta.columnOptions}
+                onChange={this.onColSelect.bind(this)}
+                closeMenuOnSelect={false}
+                width={32}
+                isClearable={true}
+                inputId="column-selection"
+                value={query.queryMeta.selectedColDisplay ?? undefined}
+              />
+            </Tooltip>
           </>
         )}
       </div>
