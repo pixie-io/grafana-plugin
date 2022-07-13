@@ -29,15 +29,9 @@ export function getColumnsScript(
   chosenOptions: Array<SelectableValue<number>>,
   allColumnOptions: Array<SelectableValue<number>>
 ): string {
-  // Setting script default to all the columns in the script
-  let script = allColumnOptions.map(({ label }) => `'${label}'`).join();
+  const options = chosenOptions?.length ? chosenOptions : allColumnOptions;
 
-  // Updating the script if the user selected columns to filter
-  if (chosenOptions?.length > 0) {
-    script = chosenOptions.map(({ label }) => `'${label}'`).join();
-  }
-
-  return script;
+  return options.map(({ label }) => `'${label}'`).join(',');
 }
 
 export class ColDisplayComponents extends PureComponent<Props> {
@@ -47,21 +41,14 @@ export class ColDisplayComponents extends PureComponent<Props> {
     }
     const { onChange, query, onRunQuery } = this.props;
 
-    // Finds which column was removed between the old and new cols selected
-    const oldCols = query.queryMeta?.selectedColDisplay?.map(({ label }) => label)!;
-    const chosenCols = chosenOptions.map(({ label }) => label);
-    const colToRemove = oldCols.filter((c) => !chosenCols.includes(c))[0];
+    // Update columns to groupby/aggregate based on any updates to the columns being displayed
+    const colsToDisplay = new Set(chosenOptions.map(({ label }) => label));
 
-    // Update Groupby Array with correct columns to display
-    const groupByArr = query.queryMeta?.selectedColGroupby?.filter(({ label }) => {
-      return label !== colToRemove;
-    });
+    const groupByArr = query.queryMeta?.selectedColGroupby?.filter(({ label }) => colsToDisplay.has(label)) ?? [];
 
-    // Update Aggregate Array with correct columns to display
-    const aggArr = query.queryMeta?.aggData?.filter(({ aggColumn }) => {
-      return aggColumn !== colToRemove;
-    });
-    const aggData = groupByArr?.length ? aggArr ?? [] : [];
+    const aggData = groupByArr?.length
+      ? query.queryMeta?.aggData?.filter(({ aggColumn }) => colsToDisplay.has(aggColumn)) ?? []
+      : [];
 
     onChange({
       ...query,
@@ -69,7 +56,7 @@ export class ColDisplayComponents extends PureComponent<Props> {
         ...query.queryMeta,
         selectedColDisplay: chosenOptions,
         selectedColGroupby: groupByArr,
-        aggData: aggData,
+        aggData,
       },
     });
     onRunQuery();
