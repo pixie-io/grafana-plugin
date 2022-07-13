@@ -18,7 +18,7 @@
 
 import defaults from 'lodash/defaults';
 import React, { PureComponent } from 'react';
-import { MultiSelect, InlineLabel, Tooltip } from '@grafana/ui';
+import { MultiSelect, InlineLabel } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { defaultQuery, PixieDataSourceOptions, PixieDataQuery } from './types';
 import { DataSource } from './datasource';
@@ -72,7 +72,6 @@ export class ColDisplayComponents extends PureComponent<Props> {
         aggData: aggData,
       },
     });
-
     onRunQuery();
   }
 
@@ -86,19 +85,16 @@ export class ColDisplayComponents extends PureComponent<Props> {
             <InlineLabel transparent={false} width="auto">
               Columns Displayed
             </InlineLabel>
-
-            <Tooltip content={'Cannot remove options selected in groupby/aggregate'} theme={'info'}>
-              <MultiSelect
-                placeholder="Select Columns to Display"
-                options={query.queryMeta.columnOptions}
-                onChange={this.onColSelect.bind(this)}
-                closeMenuOnSelect={false}
-                width={32}
-                isClearable={true}
-                inputId="column-selection"
-                value={query.queryMeta.selectedColDisplay ?? undefined}
-              />
-            </Tooltip>
+            <MultiSelect
+              placeholder="Select Columns to Display"
+              options={query.queryMeta.columnOptions}
+              onChange={this.onColSelect.bind(this)}
+              closeMenuOnSelect={false}
+              width={32}
+              isClearable={true}
+              inputId="column-selection"
+              value={query.queryMeta.selectedColDisplay ?? undefined}
+            />
           </>
         )}
       </div>
