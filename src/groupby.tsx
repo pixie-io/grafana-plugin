@@ -143,6 +143,7 @@ export class GroupbyComponents extends PureComponent<Props> {
             onChange={this.onGroupBySelect.bind(this)}
             closeMenuOnSelect={false}
             width={34}
+            isClearable={true}
             value={query.queryMeta?.selectedColGroupby ?? undefined}
           />
         </div>
