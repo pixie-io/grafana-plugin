@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7
+
+- Update carousel images and Grafana README image
+- Improve descriptions in script dropdown
+
 ## 0.0.6
 
 - Remove redundant example query from script dropdown
