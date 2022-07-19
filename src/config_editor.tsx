@@ -35,7 +35,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonData: {
         ...options?.secureJsonData,
-        apiKey: event.target.value.trim(),
+        apiKey: event.target.value,
       },
     });
   };
@@ -47,7 +47,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonData: {
         ...options?.secureJsonData,
-        clusterId: event.target.value.trim(),
+        clusterId: event.target.value,
       },
     });
   };
