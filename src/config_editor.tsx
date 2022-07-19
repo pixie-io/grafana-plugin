@@ -139,7 +139,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.clusterId) as boolean}
               value={secureJsonData.clusterId || ''}
-              label="Cluster ID"
+              label="Default Cluster ID"
               placeholder="Default Cluster ID"
               labelWidth={20}
               inputWidth={20}

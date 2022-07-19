@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
@@ -70,6 +71,9 @@ func (td *PixieDatasource) QueryData(ctx context.Context, req *backend.QueryData
 
 // Creates Pixie API client using API key and cloud Address
 func createClient(ctx context.Context, apiKey string, cloudAddr string) (*pxapi.Client, error) {
+	// untrimmed apiKey string will cause an error when creating a client
+	apiKey = strings.TrimSpace(apiKey)
+
 	var client *pxapi.Client
 	var err error
 	// First, create a client connecting to Pixie Cloud.
@@ -168,6 +172,9 @@ func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
 	if len(qm.QueryBody.ClusterID) != 0 {
 		clusterID = qm.QueryBody.ClusterID
 	}
+
+	// untrimmed clusterID string will cause an error when creating a vizier client
+	clusterID = strings.TrimSpace(clusterID)
 
 	if qm.QueryType != GetClusters && (len(qm.QueryBody.ClusterID) == 0 && clusterID == "") {
 		return nil, fmt.Errorf("no clusterID present in the request or default clusterID configured. Please set `pixieCluster` dashboard variable to `Pixie Datasource`->`Clusters`")
