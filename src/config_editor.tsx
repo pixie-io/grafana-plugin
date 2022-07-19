@@ -35,7 +35,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonData: {
         ...options?.secureJsonData,
-        apiKey: event.target.value,
+        apiKey: event.target.value.trim(),
       },
     });
   };
@@ -47,7 +47,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       ...options,
       secureJsonData: {
         ...options?.secureJsonData,
-        clusterId: event.target.value,
+        clusterId: event.target.value.trim(),
       },
     });
   };
@@ -139,7 +139,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             <SecretFormField
               isConfigured={(secureJsonFields && secureJsonFields.clusterId) as boolean}
               value={secureJsonData.clusterId || ''}
-              label="Cluster ID"
+              label="Default Cluster ID"
               placeholder="Default Cluster ID"
               labelWidth={20}
               inputWidth={20}
