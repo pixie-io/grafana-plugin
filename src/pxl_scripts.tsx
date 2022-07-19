@@ -19,7 +19,6 @@
 import { SelectableValue } from '@grafana/data';
 
 const customQuery = require('pxl_scripts/custom-query.json');
-const exampleQuery = require('pxl_scripts/example-query.json');
 const httpDataFiltered = require('pxl_scripts/http-data-filtered.json');
 const httpErrorsPerService = require('pxl_scripts/http-errors-per-service.json');
 const podMetrics = require('pxl_scripts/pods-metrics.json');
@@ -46,7 +45,6 @@ export interface Script {
 // Load predefined scripts
 const scriptsRaw: Script[] = [
   customQuery,
-  exampleQuery,
   podMetrics,
   nodeMetrics,
   namespacesMetrics,
