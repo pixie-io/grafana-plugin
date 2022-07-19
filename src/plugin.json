@@ -27,7 +27,64 @@
         "url": "https://github.com/pixie-io/pixie/blob/main/LICENSE"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "Cluster Overview",
+        "path": "img/screenshots/px-cluster-grafana.png"
+      },
+      {
+        "name": "HTTP Service Map",
+        "path": "img/screenshots/http-service-map-script.png"
+      },
+      {
+        "name": "HTTP Requests",
+        "path": "img/screenshots/http-events.png"
+      },
+      {
+        "name": "HTTP Errors Bar Chart Service",
+        "path": "img/screenshots/http-errors.png"
+      },
+      {
+        "name": "HTTP Errors per Service",
+        "path": "img/screenshots/http-error-rate-script.png"
+      },
+      {
+        "name": "HTTP Throughput per Service",
+        "path": "img/screenshots/service-throughput.png"
+      },
+      {
+        "name": "Total Request Throughput",
+        "path": "img/screenshots/http-request-throughput-script.png"
+      },
+      {
+        "name": "Network Connections",
+        "path": "img/screenshots/network-connections-script.png"
+      },
+      {
+        "name": "Inbound Connections to Cluster",
+        "path": "img/screenshots/inbound-connections-script.png"
+      },
+      {
+        "name": "Outbound Connections to Cluster",
+        "path": "img/screenshots/outbound-connections-script.png"
+      },
+      {
+        "name": "Pod Metrics",
+        "path": "img/screenshots/pod-metrics-script.png"
+      },
+      {
+        "name": "Node Metrics",
+        "path": "img/screenshots/node-metrics-script.png"
+      },
+      {
+        "name": "Service Metrics",
+        "path": "img/screenshots/service-metrics-script.png"
+      },
+      {
+        "name": "Namespace Metrics",
+        "path": "img/screenshots/namespace-metrics-script.png"
+      }
+    ],
     "version": "0.0.6",
     "updated": "2022-07-19"
   },
