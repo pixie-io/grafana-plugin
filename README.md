@@ -14,9 +14,7 @@ This plugin allows Grafana users to use Pixie as a datasource in their Grafana d
 
 * **Application CPU profiles**: Sampled stack traces from your application.
 
-<img src=".readme_assets/service-throughput.png" alt="Service throughput" width="525">
-
-<img src=".readme_assets/http-errors.png" alt="HTTP errors by service" width="525">
+![pxCluster](https://raw.githubusercontent.com/pixie-io/grafana-plugin/master/src/img/screenshots/px-cluster-grafana.png)
 
 ## Getting started
 
