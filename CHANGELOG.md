@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.8
+
+- Strip whitespace for API key and default cluster ID
+
 ## 0.0.7
 
 - Update carousel images and Grafana README image
