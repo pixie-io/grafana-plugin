@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9 
+
+- Update Grafana compatibility version
+
 ## 0.0.8
 
 - Strip whitespace for API key and default cluster ID
