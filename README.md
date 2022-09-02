@@ -40,6 +40,10 @@ Check out the Grafana Pixie plugin [tutorial](https://docs.px.dev/tutorials/inte
 
 Pixie's data can be accessed using [PxL](https://docs.px.dev/reference/pxl/), the query language for the data it collects. This datasource allows Grafana users to enter a PxL script when using Pixie as a datasource for a panel in their dashboard.
 
+## Deploy a configured Grafana instance in Kubernetes
+
+If you wish to deploy a Grafana instance into your Kubernetes cloud, you can do so by following the instructions [here](https://github.com/pixie-labs/pixielabs/tree/main/k8s/grafana_demo).
+
 ## Development
 
 If you want to add a new feature to the plugin, check out `CONTRIBUTING.md`. We welcome the contributions of the community!
