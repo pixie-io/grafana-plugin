@@ -9,6 +9,26 @@
       "pluginName": "Pixie Grafana Datasource Plugin"
     }
   ],
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "nodeGraph",
+      "name": "Node Graph",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "pixie-pixie-datasource",
+      "name": "Pixie Grafana Datasource Plugin",
+      "version": "0.0.9"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
