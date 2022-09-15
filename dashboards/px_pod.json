@@ -9,6 +9,26 @@
       "pluginName": "Pixie Grafana Datasource Plugin"
     }
   ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "pixie-pixie-datasource",
+      "name": "Pixie Grafana Datasource Plugin",
+      "version": "0.0.9"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -1415,7 +1435,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "px/pod",
+  "title": "Pixie Pod Overview",
+  "description": "Dashboard shows an overview of the specified pod, including high-level HTTP application metrics, and resource usage. To learn how to monitor infrastructure health using Pixie, see https://docs.px.dev/tutorials/pixie-101/infra-health/",
   "uid": "_t3foxCnz",
   "version": 1,
   "weekStart": ""

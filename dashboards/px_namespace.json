@@ -9,6 +9,26 @@
       "pluginName": "Pixie Grafana Datasource Plugin"
     }
   ],
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "nodeGraph",
+      "name": "Node Graph",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "pixie-pixie-datasource",
+      "name": "Pixie Grafana Datasource Plugin",
+      "version": "0.0.9"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -435,7 +455,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "px/namespace",
+  "title": "Pixie Namespace Overview",
+  "description": "Dashboard includes a service map of the HTTP traffic between the services in the selected namspace, along with the latency, error rate, and throughput per service. It also lists pods available in the namespace. To learn how to monitor service performance and infrastructure health using Pixie, see https://docs.px.dev/tutorials/pixie-101/service-performance/",
   "uid": "F6XZR_j7k",
   "version": 1,
   "weekStart": ""

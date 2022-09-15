@@ -9,6 +9,20 @@
       "pluginName": "Pixie Grafana Datasource Plugin"
     }
   ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "pixie-pixie-datasource",
+      "name": "Pixie Grafana Datasource Plugin",
+      "version": "0.0.9"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -322,7 +336,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "px/http_data",
+  "title": "Pixie HTTP Traces",
+  "description": "Dashboard includes a table of the most recent full-body HTTP messages in your cluster. For more info about request tracing using Pixie, see https://docs.px.dev/tutorials/pixie-101/request-tracing",
   "uid": "HDxrIyjnz",
   "version": 1,
   "weekStart": ""
