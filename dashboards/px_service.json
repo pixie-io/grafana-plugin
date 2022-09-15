@@ -897,7 +897,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "px/service",
+  "title": "Pixie Service Overview",
+  "description": "Dashboard shows latency, error, and throughput over time for all HTTP requests for the selected service. It also includes a sample of slow requests to the service. To learn how to monitor service performance using Pixie, see https://docs.px.dev/tutorials/pixie-101/service-performance/",
   "uid": "qhHtFyCnk",
   "version": 1,
   "weekStart": ""
