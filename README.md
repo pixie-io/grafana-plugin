@@ -42,7 +42,7 @@ Pixie's data can be accessed using [PxL](https://docs.px.dev/reference/pxl/), th
 
 ## Deploy a configured Grafana instance in Kubernetes
 
-If you wish to deploy a Grafana instance into your Kubernetes cloud, you can do so by following the instructions [here](https://github.com/pixie-labs/pixielabs/tree/main/k8s/grafana_demo).
+If you wish to deploy a Grafana instance into your Kubernetes cloud, you can do so by following the instructions [here](https://github.com/pixie-io/pixie/tree/main/k8s/grafana_demo).
 
 ## Development
 
