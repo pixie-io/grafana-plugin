@@ -153,8 +153,8 @@ export class ConfigEditor extends PureComponent<Props, State> {
           <div className="gf-form">
             <FormField
               value={secureJsonData.cloudAddr || ''}
-              label="Pixie Cloud address (if not using withpixie.ai)"
-              placeholder="withpixie.ai:443"
+              label="Pixie Cloud address (if not using getcosmic.ai)"
+              placeholder="getcosmic.ai:443"
               labelWidth={20}
               inputWidth={20}
               onReset={this.onResetCloudAddr}
