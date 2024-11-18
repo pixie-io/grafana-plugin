@@ -16,9 +16,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { ChangeEvent, PureComponent } from 'react';
+import React, { PureComponent } from 'react';
 import { LegacyForms } from '@grafana/ui';
-import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
+import {
+    DataSourcePluginOptionsEditorProps,
+    onUpdateDatasourceJsonDataOption,
+    onUpdateDatasourceSecureJsonDataOption,
+    updateDatasourcePluginResetOption,
+} from '@grafana/data';
 import { PixieDataSourceOptions, PixieSecureDataSourceOptions } from './types';
 
 const { FormField, SecretFormField } = LegacyForms;
@@ -28,94 +33,19 @@ interface Props extends DataSourcePluginOptionsEditorProps<PixieDataSourceOption
 interface State {}
 
 export class ConfigEditor extends PureComponent<Props, State> {
-  onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        ...options?.secureJsonData,
-        apiKey: event.target.value,
-      },
-    });
-  };
-
-  onClusterIdChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        ...options?.secureJsonData,
-        clusterId: event.target.value,
-      },
-    });
-  };
-
-  onCloudAddrChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        ...options?.secureJsonData,
-        cloudAddr: event.target.value,
-      },
-    });
-  };
-
   onResetAPIKey = () => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        apiKey: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        apiKey: '',
-      },
-    });
+    updateDatasourcePluginResetOption(this.props, 'apiKey');
   };
 
   onResetClusterId = () => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        clusterId: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        clusterId: '',
-      },
-    });
-  };
-
-  onResetCloudAddr = () => {
-    const { onOptionsChange, options } = this.props;
-
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        cloudAddr: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        cloudAddr: '',
-      },
-    });
+    updateDatasourcePluginResetOption(this.props, 'clusterId');
   };
 
   render() {
     const { options } = this.props;
     const { secureJsonFields } = options;
     const secureJsonData = (options.secureJsonData || {}) as PixieSecureDataSourceOptions;
+    const jsonData = (options.jsonData || {}) as PixieDataSourceOptions;
 
     return (
       <div className="gf-form-group">
@@ -129,7 +59,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               labelWidth={20}
               inputWidth={20}
               onReset={this.onResetAPIKey}
-              onChange={this.onAPIKeyChange}
+              onChange={onUpdateDatasourceSecureJsonDataOption(this.props, 'apiKey')}
             />
           </div>
         </div>
@@ -144,7 +74,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
               labelWidth={20}
               inputWidth={20}
               onReset={this.onResetClusterId}
-              onChange={this.onClusterIdChange}
+              onChange={onUpdateDatasourceSecureJsonDataOption(this.props, 'clusterId')}
             />
           </div>
         </div>
@@ -152,13 +82,12 @@ export class ConfigEditor extends PureComponent<Props, State> {
         <div className="gf-form-inline">
           <div className="gf-form">
             <FormField
-              value={secureJsonData.cloudAddr || ''}
-              label="Pixie Cloud address (if not using withpixie.ai)"
-              placeholder="withpixie.ai:443"
+              value={jsonData.cloudAddr || ''}
+              label="Pixie Cloud address (if not using getcosmic.ai)"
+              placeholder="getcosmic.ai:443"
               labelWidth={20}
               inputWidth={20}
-              onReset={this.onResetCloudAddr}
-              onChange={this.onCloudAddrChange}
+              onChange={onUpdateDatasourceJsonDataOption(this.props, 'cloudAddr')}
             />
           </div>
         </div>

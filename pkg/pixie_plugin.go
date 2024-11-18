@@ -59,7 +59,17 @@ func (td *PixieDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	// Loop over queries and execute them individually. Save the response
 	// in a hashmap with RefID as identifier.
 	for _, q := range req.Queries {
-		res, err := td.query(ctx, q, req.PluginContext.DataSourceInstanceSettings.DecryptedSecureJSONData)
+		dataSourceSettings := req.PluginContext.DataSourceInstanceSettings
+		jsonData := dataSourceSettings.JSONData
+		secureJsonData := dataSourceSettings.DecryptedSecureJSONData
+
+		var jsonDataMap map[string]interface{}
+		err := json.Unmarshal(jsonData, &jsonDataMap)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshalling JSON: %v", err)
+		}
+
+		res, err := td.query(ctx, q, jsonDataMap, secureJsonData)
 		if err != nil {
 			return response, err
 		}
@@ -149,11 +159,12 @@ type queryModel struct {
 
 // Handle an incoming query
 func (td *PixieDatasource) query(ctx context.Context, query backend.DataQuery,
-	config map[string]string) (*backend.DataResponse, error) {
+	config map[string]interface{}, decryptedConfig map[string]string) (*backend.DataResponse, error) {
 
-	apiToken := config[apiKeyField]
-	cloudAddr := config[cloudAddrField]
-	clusterID := config[clusterIDField]
+	cloudAddr := config[cloudAddrField].(string)
+
+	apiToken := decryptedConfig[apiKeyField]
+	clusterID := decryptedConfig[clusterIDField]
 	var qm queryModel
 	if err := json.Unmarshal(query.JSON, &qm); err != nil {
 		return nil, fmt.Errorf("error unmarshalling JSON: %v", err)
