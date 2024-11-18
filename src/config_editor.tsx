@@ -19,10 +19,10 @@
 import React, { PureComponent } from 'react';
 import { LegacyForms } from '@grafana/ui';
 import {
-    DataSourcePluginOptionsEditorProps,
-    onUpdateDatasourceJsonDataOption,
-    onUpdateDatasourceSecureJsonDataOption,
-    updateDatasourcePluginResetOption,
+  DataSourcePluginOptionsEditorProps,
+  onUpdateDatasourceJsonDataOption,
+  onUpdateDatasourceSecureJsonDataOption,
+  updateDatasourcePluginResetOption,
 } from '@grafana/data';
 import { PixieDataSourceOptions, PixieSecureDataSourceOptions } from './types';
 
