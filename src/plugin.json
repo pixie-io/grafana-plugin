@@ -5,6 +5,7 @@
   "id": "pixie-pixie-datasource",
   "metrics": true,
   "backend": true,
+  "alerting": true,
   "executable": "gpx-pixie-pixie-datasource-plugin",
   "info": {
     "description": "Pixie's Grafana Datasource Plugin",
