@@ -69,13 +69,14 @@ export const defaultQuery: Partial<PixieDataQuery> = {
   },
 };
 
-export interface PixieDataSourceOptions extends DataSourceJsonData {}
+export interface PixieDataSourceOptions extends DataSourceJsonData {
+  // Address of Pixie cloud.
+  cloudAddr?: string;
+}
 
 export interface PixieSecureDataSourceOptions {
   // Pixie API key.
   apiKey?: string;
-  // Address of Pixie cloud.
-  cloudAddr?: string;
   // ID of the Pixie cluster to query.
   clusterId?: string;
 }
