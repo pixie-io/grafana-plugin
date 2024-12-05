@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.10
+
+- Enable alerting for Pixie datasource
+- Fix bug where plugin settings didn't show the present value for cloud address (Fixes [grafana-plugin#100](https://github.com/pixie-io/grafana-plugin/issues/100)
+
 ## 0.0.9 
 
 - Update Grafana compatibility version
