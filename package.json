@@ -1,6 +1,6 @@
 {
   "name": "pixie-pixie-datasource",
-  "version": "0.0.10",
+  "version": "0.10.0-test-release-job",
   "description": "Pixie's Grafana Datasource Plugin",
   "scripts": {
     "build": "grafana-toolkit plugin:build",

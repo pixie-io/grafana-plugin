@@ -86,7 +86,7 @@
         "path": "img/screenshots/namespace-metrics-script.png"
       }
     ],
-    "version": "0.0.10",
+    "version": "0.10.0-test-release-job",
     "updated": "2024-11-05"
   },
   "dependencies": {
