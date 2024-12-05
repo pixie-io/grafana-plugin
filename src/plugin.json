@@ -86,8 +86,8 @@
         "path": "img/screenshots/namespace-metrics-script.png"
       }
     ],
-    "version": "0.0.9",
-    "updated": "2022-08-26"
+    "version": "0.0.10",
+    "updated": "2024-11-05"
   },
   "dependencies": {
     "grafanaDependency": ">=7.3.0",
