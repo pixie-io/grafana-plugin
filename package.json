@@ -3,17 +3,23 @@
   "version": "0.0.10",
   "description": "Pixie's Grafana Datasource Plugin",
   "scripts": {
-    "build": "grafana-toolkit plugin:build",
-    "test": "grafana-toolkit plugin:test",
-    "dev": "grafana-toolkit plugin:dev",
-    "watch": "grafana-toolkit plugin:dev --watch",
-    "sign": "grafana-toolkit plugin:sign",
-    "start": "yarn watch"
+    "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
+    "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",
+    "test": "jest --watch --onlyChanged",
+    "test:ci": "jest --passWithNoTests --maxWorkers 4",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --cache --ignore-path ./.gitignore --ext .js,.jsx,.ts,.tsx .",
+    "lint:fix": "npm run lint -- --fix",
+    "e2e": "playwright test",
+    "server": "docker compose up --build",
+    "sign": "npx --yes @grafana/sign-plugin@latest"
   },
   "author": "The Pixie Authors",
   "license": "Apache-2.0",
   "devDependencies": {
     "@grafana/toolkit": "8.2.0",
+    "@swc/core": "^1.10.15",
+    "@swc/jest": "^0.2.37",
     "@types/prismjs": "^1.26.0"
   },
   "resolutions": {
@@ -27,7 +33,7 @@
     "@grafana/toolkit/*/*/minimist": "^1.2.6"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "dependencies": {
     "@grafana/data": "7.5.14",
@@ -35,6 +41,7 @@
     "@grafana/ui": "7.5.14",
     "prism-themes": "^1.9.0",
     "prismjs": "^1.28.0",
-    "react-simple-code-editor": "^0.11.2"
+    "react-simple-code-editor": "^0.11.2",
+    "typescript": "5.5"
   }
 }
